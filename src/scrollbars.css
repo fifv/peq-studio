@@ -1,0 +1,52 @@
+/* Keep the workspace width steady when content starts or stops overflowing. */
+html {
+  color-scheme: dark;
+  scrollbar-gutter: stable;
+  --scroll-thumb: #34465e;
+  --scroll-thumb-hover: #536d8e;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+/* Override older per-component colors so every scroll surface matches. */
+html, body, #presets, #bands, .curve-list, .settings-popup, dialog, dialog textarea {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+html:hover, #presets:hover, #bands:hover, .curve-list:hover,
+.settings-popup:hover, dialog:hover, dialog textarea:hover,
+#presets:focus-within, #bands:focus-within, .curve-list:focus-within,
+.settings-popup:focus-within, dialog textarea:focus {
+  scrollbar-color: var(--scroll-thumb-hover) transparent;
+}
+
+#presets, .curve-list, .settings-popup, dialog, dialog textarea {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+#bands { overscroll-behavior-x: contain; }
+dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
+
+/* Rounded, unobtrusive fallback for browsers without standard scrollbar styling. */
+@supports not (scrollbar-width: thin) {
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 2px solid transparent; background-clip: padding-box; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-hover); }
+  ::-webkit-scrollbar-button { display: none; }
+}
+
+@supports not (scrollbar-gutter: stable) {
+  html { overflow-y: scroll; }
+}
+
+@media (forced-colors: active) {
+  *, html, body, #presets, #bands, .curve-list, .settings-popup, dialog, dialog textarea {
+    scrollbar-color: auto;
+  }
+}

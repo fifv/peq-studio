@@ -1,0 +1,8 @@
+# Synthetic curve for import tests; not a headphone measurement.
+Frequency,Level
+20,3
+100,2
+1000,0
+3000,5
+10000,-3
+20000,-7
