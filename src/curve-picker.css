@@ -31,12 +31,6 @@
   color: #8494ae;
   flex-shrink: 0;
 }
-.curve-chevron {
-  font-size: 17px;
-  color: #8b9db8;
-  margin-left: auto;
-  line-height: 1;
-}
 .curve-trigger[aria-expanded='true'] {
   border-color: #538cf0;
   box-shadow: 0 0 0 2px #347df71a;

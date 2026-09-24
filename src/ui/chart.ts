@@ -60,6 +60,12 @@ export function createChart({
     drawHover();
   }
   function draw() {
+    const svg = $<SVGSVGElement>('#chart');
+    // Match the plot to its available space without stretching text or band handles.
+    const width = svg.clientWidth;
+    const height = width > 0 ? (svg.clientHeight / width) * 1200 : 490;
+    bounds.b = Math.max(bounds.t + 40, height - 43);
+    svg.setAttribute('viewBox', `0 0 1200 ${height}`);
     const state = getState(),
       selected = getSelected(),
       layers = getLayers();
@@ -108,8 +114,7 @@ export function createChart({
           )
         : 0,
     );
-    let html =
-      '<defs><clipPath id="plot-clip"><rect x="54" y="24" width="1121" height="423"/></clipPath><linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f5a338" stop-opacity="0.075"/><stop offset="1" stop-color="#f5a338" stop-opacity="0"/></linearGradient></defs>';
+    let html = `<defs><clipPath id="plot-clip"><rect x="${bounds.l}" y="${bounds.t}" width="${bounds.r - bounds.l}" height="${bounds.b - bounds.t}"/></clipPath></defs>`;
     const major = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
     const decades = [100, 1000, 10000];
     for (const hz of [
@@ -120,7 +125,7 @@ export function createChart({
         x1="${xOf(hz)}"
         y1="24"
         x2="${xOf(hz)}"
-        y2="447"
+        y2="${bounds.b}"
         class="grid ${major.includes(hz) ? 'major' : ''} ${decades.includes(hz) ? 'decade' : ''}"
       />`;
     const step = axisMax - axisMin <= 30 ? 5 : axisMax - axisMin > 100 ? 20 : 10;
@@ -137,7 +142,7 @@ export function createChart({
     for (const hz of major)
       html += /* HTML */ `<text
         x="${xOf(hz)}"
-        y="475"
+        y="${bounds.b + 28}"
         text-anchor="middle"
         class="axis ${decades.includes(hz) ? 'decade' : ''}"
         >${fmt(hz)}</text
@@ -257,6 +262,10 @@ export function createChart({
     };
   }
   const svg = $<SVGSVGElement>('#chart');
+  new ResizeObserver(() => {
+    hoverPoint = null;
+    draw();
+  }).observe(svg);
   let drag: { id: number; index: number } | null = null;
   const pointIndex = (event: Event) =>
     event.target instanceof Element

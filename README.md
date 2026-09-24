@@ -42,6 +42,21 @@ Open the localhost address printed by Vite (normally http://127.0.0.1:5173).
 The app makes no external requests at runtime. After installation it works offline
 while the local server is running. No cloud account or API key is needed.
 
+## GitHub Pages
+
+```sh
+npm run deploy
+```
+
+This builds and type-checks the app, then publishes `dist` to the `gh-pages`
+branch of the configured Git remote. In repository Settings → Pages, use
+“Deploy from a branch” with `gh-pages` and `/ (root)`.
+
+Vite uses relative asset paths so the same build works under a repository path
+such as `/peq-studio/` or at a domain root. Scripts, styles, the Auto EQ worker,
+and the local curve library all stay within the deployed site directory.
+Deploy the generated `dist` files, not the source `index.html`.
+
 ## Included
 
 - Unlimited preset count at the application level; browser localStorage capacity

@@ -9,6 +9,7 @@ import './style.css';
 import './curve-picker.css';
 import './controls.css';
 import './scrollbars.css';
+import './layout.css';
 import {
   FREQUENCIES,
   clone,
@@ -569,10 +570,15 @@ document.addEventListener('change', (event) => {
     commit(() => {
       preset().enabled = el.checked;
     });
-  if (el.id === 'filter-type')
+  if (el instanceof HTMLInputElement && el.name === 'filter-type') {
+    const type = el.value as Filter['type'];
     commit(() => {
-      current().filters[selected].type = el.value as Filter['type'];
+      current().filters[selected].type = type;
     });
+    $<HTMLInputElement>(`input[name="filter-type"][value="${type}"]`).focus({
+      preventScroll: true,
+    });
+  }
   if (el.id === 'sample-rate') {
     commit(() => {
       state.sampleRate = +el.value;

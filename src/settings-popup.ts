@@ -161,7 +161,7 @@ export function createSettingsPopup({
         aria-expanded="false"
       >
         <span id="alignment-value" class="alignment-value"></span
-        ><span class="alignment-chevron" aria-hidden="true">⌄</span>
+        ><span class="dropdown-chevron" aria-hidden="true"></span>
       </button>
       <div
         id="level-method-options"

@@ -34,6 +34,7 @@ export function createCurvePicker({
   onImport: () => void;
 }) {
   const label = kind === 'target' ? 'Target curve' : 'Source response';
+  const selectedByCollection: Partial<Record<Collection, string>> = {};
   let view = collectionOf(findCurve(getState(), kind));
   let popup: HTMLDivElement | null = null;
   let search = '',
@@ -77,18 +78,18 @@ export function createCurvePicker({
   const items = () => (view === 'custom' ? customCurves(getState(), kind) : builtinCurves(view));
   function update() {
     const selected = findCurve(getState(), kind);
+    if (selected) selectedByCollection[collectionOf(selected)] = selected.id;
     if (lastSelectedId !== getState()[`${kind}Id`]) {
       lastSelectedId = getState()[`${kind}Id`];
       if (selected && !loading) {
         view = collectionOf(selected);
-        search = '';
         if (popup) renderPopup();
       }
     }
     trigger.innerHTML = /* HTML */ `<span class="curve-trigger-name"
         >${escapeHtml(selected?.name ?? 'None')}</span
       ><span class="curve-trigger-count">(${items().length})</span
-      ><span class="curve-chevron" aria-hidden="true">⌄</span>`;
+      ><span class="dropdown-chevron" aria-hidden="true"></span>`;
     trigger.title = selected?.name ?? 'None';
     query<HTMLInputElement>('input[data-adjust]', root).value = String(
       getState().curveDisplay[`${kind}OffsetDb`],
@@ -157,10 +158,10 @@ export function createCurvePicker({
       : error ||
         `${results.length} ${results.length === 1 ? 'curve' : 'curves'}${view !== 'custom' ? ` · bundled ${view === 'target' ? TARGET_CATALOG_VERSION : SOURCE_CATALOG_VERSION}` : ' · saved on this device'}`;
     popup.setAttribute('aria-busy', String(loading));
-    popup.querySelectorAll<HTMLButtonElement>('.curve-choice').forEach((button) => {
+    popup.querySelectorAll<HTMLButtonElement>('.curve-choice, [data-view]').forEach((button) => {
       button.disabled = loading;
     });
-    query<HTMLButtonElement>('[data-clear]', popup).disabled = !state[`${kind}Id`];
+    query<HTMLButtonElement>('[data-clear]', popup).disabled = loading || !state[`${kind}Id`];
   }
   function renderPopup() {
     if (!popup) return;
@@ -234,6 +235,50 @@ export function createCurvePicker({
     renderList();
     position();
   }
+  async function selectCurve(id: string, restore = false) {
+    if (loading || !popup) return;
+    const activePopup = popup,
+      scrollTop = query('.curve-list', popup).scrollTop,
+      previousCollection = collectionOf(findCurve(getState(), kind));
+    loading = true;
+    error = '';
+    renderList();
+    try {
+      await onSelect(id);
+      if (!id) delete selectedByCollection[previousCollection];
+    } catch (e) {
+      error = errorMessage(e);
+    } finally {
+      loading = false;
+      if (popup) {
+        renderList();
+        if (popup === activePopup) {
+          if (restore) revealSelected();
+          else {
+            query('.curve-list', popup).scrollTop = scrollTop;
+            (
+              popup.querySelector<HTMLElement>('.curve-choice[aria-pressed="true"]') ??
+              query<HTMLInputElement>('input', popup)
+            ).focus({ preventScroll: true });
+          }
+        }
+      }
+    }
+  }
+  async function switchCollection(next: Collection) {
+    if (loading || !popup || next === view) return;
+    view = next;
+    renderPopup();
+    query<HTMLButtonElement>(`[data-view="${view}"]`, popup).focus();
+    update();
+    const remembered = selectedByCollection[view];
+    if (remembered && items().some((curve) => curve.id === remembered)) {
+      if (remembered !== getState()[`${kind}Id`]) await selectCurve(remembered, true);
+      else revealSelected();
+    } else {
+      delete selectedByCollection[view];
+    }
+  }
   function open() {
     if (popup) {
       close();
@@ -241,9 +286,7 @@ export function createCurvePicker({
     }
     openPicker?.close();
     openPicker = controller;
-    const selected = findCurve(getState(), kind);
-    if (selected) view = collectionOf(selected);
-    search = '';
+    // Keep the collection and search intact when reopening this picker.
     popup = document.createElement('div');
     popup.id = `${kind}-curve-menu`;
     popup.className = 'curve-library-popup';
@@ -257,40 +300,13 @@ export function createCurvePicker({
     popup.addEventListener('click', async (event) => {
       const tab = eventElement(event).closest<HTMLElement>('[data-view]');
       if (tab) {
-        view = tab.dataset.view as Collection;
-        search = '';
-        renderPopup();
-        query<HTMLButtonElement>(`[data-view="${view}"]`, popup).focus();
-        update();
+        await switchCollection(tab.dataset.view as Collection);
         return;
       }
       const choice = eventElement(event).closest<HTMLElement>('[data-curve-id]'),
         clear = eventElement(event).closest<HTMLElement>('[data-clear]');
       if (choice || clear) {
-        const activePopup = popup,
-          scrollTop = query('.curve-list', popup).scrollTop;
-        loading = true;
-        error = '';
-        renderList();
-        try {
-          await onSelect(choice?.dataset.curveId ?? '');
-        } catch (e) {
-          error = errorMessage(e);
-        } finally {
-          loading = false;
-          if (popup) {
-            renderList();
-            if (popup === activePopup) {
-              query('.curve-list', popup).scrollTop = scrollTop;
-              (
-                query('.curve-choice[aria-pressed="true"]', popup) ??
-                query<HTMLInputElement>('input', popup)
-              ).focus({
-                preventScroll: true,
-              });
-            }
-          }
-        }
+        await selectCurve(choice?.dataset.curveId ?? '');
         return;
       }
       const remove = eventElement(event).closest<HTMLElement>('[data-delete-id]');
@@ -319,15 +335,12 @@ export function createCurvePicker({
       ) {
         event.preventDefault();
         const views = Object.keys(collections) as Collection[];
-        view =
+        const next =
           views[
             (views.indexOf(view) + (event.key === 'ArrowRight' ? 1 : views.length - 1)) %
               views.length
           ];
-        search = '';
-        renderPopup();
-        query<HTMLButtonElement>(`[data-view="${view}"]`, popup).focus();
-        update();
+        void switchCollection(next);
         return;
       }
       if (

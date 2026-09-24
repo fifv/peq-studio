@@ -1,0 +1,125 @@
+/* The graph takes the remaining desktop height; controls keep their own space. */
+@media (min-width: 761px) {
+  .workspace {
+    height: calc(100dvh - 24px);
+    min-height: 680px;
+  }
+
+  .sidebar {
+    min-height: 0;
+  }
+
+  #presets {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .sidebar-heading,
+  .search-wrap,
+  .sidebar-bottom {
+    flex-shrink: 0;
+  }
+
+  .sidebar-bottom {
+    display: grid;
+    grid-template-columns: 6px minmax(0, 1fr) 34px;
+    align-items: start;
+    margin-top: auto;
+    margin-bottom: 20px;
+  }
+
+  .sidebar-bottom button {
+    align-self: center;
+    margin-left: 0;
+  }
+
+  .editor {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(120px, 1fr) auto auto auto;
+    min-height: 0;
+  }
+
+  .editor-heading {
+    min-height: 88px;
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .curve-toolbar {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .legend-row {
+    padding-top: 12px;
+  }
+
+  .graph-area {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+  }
+
+  .graph-area > svg {
+    display: block;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .graph-footer {
+    margin-bottom: 14px;
+  }
+
+  #band-editor {
+    height: 90px;
+  }
+
+  #band-editor > .detail-panel,
+  #band-editor > .editor-empty {
+    height: 100%;
+  }
+
+  .editor-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 761px) and (max-height: 800px) {
+  .editor-heading {
+    min-height: 76px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .curve-toolbar {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .legend-row {
+    padding-top: 8px;
+  }
+
+  .detail-panel {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  #band-editor {
+    height: 80px;
+  }
+
+  .editor-footer {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .graph-area > svg {
+    /* Reset the desktop SVG proportions when switching to the stacked layout. */
+    aspect-ratio: 1200 / 490;
+  }
+}

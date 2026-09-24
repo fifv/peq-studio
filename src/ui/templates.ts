@@ -177,18 +177,28 @@ export function bandEditor(f: Filter | undefined, selected: number) {
     : /* HTML */ ` <div class="detail-panel">
         <span class="detail-number" style="color:${bandColor(selected)}"
           >BAND ${String(selected + 1).padStart(2, '0')}</span
-        ><label
-          >FILTER TYPE<select id="filter-type">
+        >
+        <fieldset class="filter-type-field">
+          <legend>FILTER TYPE</legend>
+          <div class="filter-type-options">
             ${Object.entries(TYPES)
               .map(
                 ([code, name]) =>
-                  /* HTML */ ` <option value="${code}" ${f.type === code ? 'selected' : ''}>
-                    ${name}
-                  </option>`,
+                  /* HTML */ ` <label class="filter-type-choice" title="${name}">
+                    <input
+                      type="radio"
+                      name="filter-type"
+                      value="${code}"
+                      aria-label="${name}"
+                      ${f.type === code ? 'checked' : ''}
+                    />
+                    ${icon(code)}<span>${code.replace('SC', 'S')}</span>
+                  </label>`,
               )
               .join('')}
-          </select></label
-        ><label
+          </div>
+        </fieldset>
+        <label
           >FREQUENCY
           <div class="unit-input">
             <input

@@ -338,12 +338,88 @@
   position: static;
   margin-top: 18px;
 }
+.detail-panel > label {
+  min-width: 0;
+}
+.filter-type-field {
+  flex: 1.2;
+  min-width: 180px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.filter-type-field legend {
+  padding: 0;
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  color: #8291a7;
+}
+.filter-type-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 8px;
+}
+.filter-type-options .filter-type-choice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 36px;
+  border: 1px solid #2a3549;
+  border-radius: 6px;
+  background: #0d1623;
+  color: #8291a7;
+  font-size: 9px;
+  line-height: 10px;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.filter-type-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.filter-type-choice svg {
+  width: 16px;
+  height: 16px;
+}
+.filter-type-choice:hover {
+  background: #19263a;
+  color: #d8e8ff;
+}
+.filter-type-choice:has(input:checked) {
+  background: #203b60;
+  border-color: #548eff;
+  color: #e5efff;
+}
+.filter-type-choice:has(input:focus-visible) {
+  outline: 2px solid #78a8ff;
+  outline-offset: 2px;
+}
 [data-adjust] {
   cursor: ns-resize;
   touch-action: none;
 }
 input[type='number'][data-adjust]:focus {
   cursor: text;
+}
+/* Focus belongs to the complete value + unit control, not its inner input. */
+:is(.unit-input, .preamp-value, .curve-offset > span):focus-within {
+  outline: 2px solid #78a8ff;
+  outline-offset: -1px;
+}
+:is(.unit-input, .preamp-value, .curve-offset > span) input[type='number']:focus-visible {
+  outline: none;
+}
+.preamp-value {
+  border-radius: 5px;
+}
+.unit-input input {
+  min-width: 0;
 }
 .adjusting-value,
 .adjusting-value * {
@@ -431,7 +507,7 @@ input[type='number'][data-adjust]:focus {
 .settings-popup select {
   display: block;
   width: 100%;
-  padding: 8px 9px;
+  padding: 8px 36px 8px 11px;
   margin-top: 6px;
   font-size: 12px;
   border-color: #2b3e59;
@@ -597,13 +673,6 @@ dialog .config-text {
   border-color: #577caa;
   background: #18283d;
 }
-.alignment-chevron {
-  color: #8fa8c9;
-  transition: transform 0.15s;
-}
-.alignment-trigger[aria-expanded='true'] .alignment-chevron {
-  transform: rotate(180deg);
-}
 .alignment-options {
   display: grid;
   gap: 3px;
@@ -761,6 +830,9 @@ dialog .config-text {
   }
   .detail-panel label {
     min-width: 0;
+  }
+  .filter-type-field {
+    grid-column: 1 / -1;
   }
   .detail-panel > .icon-button {
     position: static;

@@ -11,10 +11,13 @@
     "extract": "tsx scripts/extract-core.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages --dist dist"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
+    "gh-pages": "^6.3.0",
     "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
