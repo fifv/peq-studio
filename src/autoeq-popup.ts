@@ -4,6 +4,7 @@ import type { AutoEqContext, AutoEqOptions, AutoEqResult, AutoEqMessage } from '
 import { errorMessage } from './utils.ts';
 import { defaultAutoEqOptions, validateAutoEqOptions } from './autoeq.ts';
 import { installNumericControls } from './numeric-controls.ts';
+import { renderToggle } from './ui/toggle.ts';
 
 export function createAutoEqPopup({
   anchor,
@@ -53,6 +54,7 @@ export function createAutoEqPopup({
         element,
         key: `autoeq:${name}`,
         value: element.value === '' ? Number(options[name]) : Number(element.value),
+        resetValue: Number(defaultAutoEqOptions()[name]),
         min,
         max,
         step: Number(element.dataset.adjustStep),
@@ -175,15 +177,9 @@ export function createAutoEqPopup({
             <div class="settings-pair">
               ${field('minQ', 'Minimum Q', 0.1, 20, 0.1)}${field('maxQ', 'Maximum Q', 0.1, 20, 0.1)}
             </div>
-            <label class="check-row"
-              ><input name="shelves" type="checkbox" ${options.shelves ? 'checked' : ''} />Allow low
-              / high shelves</label
-            >
+            ${renderToggle('Allow low / high shelves', { name: 'shelves', checked: options.shelves })}
           </details>
-          <label class="check-row"
-            ><input name="safePreamp" type="checkbox" ${options.safePreamp ? 'checked' : ''} />Set
-            safe preamp</label
-          >
+          ${renderToggle('Set safe preamp', { name: 'safePreamp', checked: options.safePreamp })}
         </fieldset>
         <p class="settings-note">
           Uses current curve alignment and offsets. Safe preamp adds headroom after fitting;

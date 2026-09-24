@@ -2,17 +2,18 @@ import type { Channel, Filter, Workspace, Preset, ChannelName } from '../types.t
 import { escapeHtml as esc, formatFrequency as fmt, signed } from '../utils.ts';
 import { TYPES, bandColor } from '../model.ts';
 import { icon, iconButton as ib } from './icons.ts';
+import { renderToggle } from './toggle.ts';
 export function appMarkup() {
   return /* HTML */ ` <main class="workspace">
       <aside class="sidebar">
         <div class="sidebar-heading">
-          <div>
-            <div class="brand sidebar-brand" aria-label="PEQ Studio">
-              ${icon('wave')}<strong>PEQ<span>STUDIO</span></strong>
-            </div>
-            <h2>Presets <span id="preset-count"></span></h2>
+          <div class="brand sidebar-brand" aria-label="PEQ Studio">
+            ${icon('wave')}<strong>PEQ<span>STUDIO</span></strong>
           </div>
-          ${ib('new', 'plus', 'New preset')}
+          <div class="preset-section-heading">
+            <h2>Presets <span id="preset-count"></span></h2>
+            ${ib('new', 'plus', 'New preset')}
+          </div>
         </div>
         <div class="search-wrap">
           <input id="search" aria-label="Search presets" placeholder="Search presets…" />
@@ -36,11 +37,7 @@ export function appMarkup() {
           <div class="editor-actions">
             <div class="history">${ib('undo', 'undo', 'Undo')}${ib('redo', 'redo', 'Redo')}</div>
             <div class="segmented" id="channel-mode"></div>
-            <label class="power-label"
-              >PEQ <input type="checkbox" id="power" role="switch" /><span
-                class="switch-track"
-              ></span
-            ></label>
+            ${renderToggle('PEQ', { id: 'power', className: 'power-label' })}
           </div>
         </div>
         <div class="curve-toolbar">
@@ -103,8 +100,11 @@ export function appMarkup() {
             </div>
           </div>
           <div class="band-count"><span>BANDS</span><strong id="band-count"></strong></div>
-          <div id="bands" class="bands"></div>
+          <div id="bands" class="bands" data-horizontal-scroll></div>
           <div class="rail-actions">
+            <button data-action="expand-bands" aria-expanded="false" aria-controls="bands">
+              Expand all
+            </button>
             <button
               data-action="auto-preamp"
               title="Reduce preamp until the sampled combined response is at or below 0 dB"
@@ -135,6 +135,7 @@ export function bandCards(c: Channel, selected: number) {
         (f, i) =>
           /* HTML */ ` <div
             class="band-card ${selected === i ? 'selected' : ''} ${!f.enabled ? 'disabled-band' : ''}"
+            data-band-card="${i}"
             style="--band:${bandColor(i)}"
           >
             <button

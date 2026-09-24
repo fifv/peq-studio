@@ -22,8 +22,15 @@ export function installNumericControls<T extends NumericSpec>({
   onChange: (spec: T, value: number) => void;
   onEnd: () => void;
 }) {
-  let gesture: { spec: T; id: number; startY: number; start: number; changed: boolean } | null =
-      null,
+  let gesture: {
+      spec: T;
+      id: number;
+      startX: number;
+      startY: number;
+      start: number;
+      changed: boolean;
+      range: { min: number; max: number; travel: number } | null;
+    } | null = null,
     wheel: T | null = null,
     wheelTimer: ReturnType<typeof setTimeout> | undefined,
     suppressClick = false;
@@ -42,20 +49,49 @@ export function installNumericControls<T extends NumericSpec>({
     const spec = resolve(event.target);
     if (!spec) return;
     finishWheel();
+    const slider =
+      spec.element instanceof HTMLInputElement && spec.element.type === 'range'
+        ? spec.element
+        : null;
     event.preventDefault();
+    if (slider) {
+      slider.focus();
+      slider.dataset.draggingRange = '';
+    }
     gesture = {
       spec,
       id: event.pointerId,
+      startX: event.clientX,
       startY: event.clientY,
       start: spec.value,
       changed: false,
+      // Use the thumb's travel distance, but anchor movement to the initial value.
+      // Pressing anywhere on the track therefore never jumps the gain.
+      range: slider
+        ? {
+            min: Number(slider.min),
+            max: Number(slider.max),
+            travel: Math.max(1, slider.getBoundingClientRect().height - 16),
+          }
+        : null,
     };
     spec.element.setPointerCapture(event.pointerId);
   });
   document.addEventListener('pointermove', (event) => {
     if (!gesture || gesture.id !== event.pointerId) return;
     const distance = gesture.startY - event.clientY;
-    if (!gesture.changed && Math.abs(distance) < 3) return;
+    if (!gesture.changed) {
+      if (gesture.spec.element.closest('[data-horizontal-scroll]')) {
+        const horizontal = Math.abs(event.clientX - gesture.startX);
+        if (Math.max(horizontal, Math.abs(distance)) < 6) return;
+        if (horizontal > Math.abs(distance)) {
+          if (gesture.spec.element.hasPointerCapture(event.pointerId))
+            gesture.spec.element.releasePointerCapture(event.pointerId);
+          gesture = null;
+          return;
+        }
+      } else if (Math.abs(distance) < 3) return;
+    }
     event.preventDefault();
     if (!gesture.changed) {
       onBegin();
@@ -63,15 +99,27 @@ export function installNumericControls<T extends NumericSpec>({
       document.body.classList.add('adjusting-value');
     }
     const steps = (distance / 5) * (event.shiftKey ? 0.1 : 1);
-    onChange(gesture.spec, adjustedValue(gesture.start, steps, gesture.spec));
+    const { range } = gesture;
+    const value = range
+      ? adjustedValue(
+          gesture.start,
+          Math.round((distance * (range.max - range.min)) / range.travel / gesture.spec.step),
+          {
+            ...gesture.spec,
+            min: range.min,
+            max: range.max,
+          },
+        )
+      : adjustedValue(gesture.start, steps, gesture.spec);
+    onChange(gesture.spec, value);
   });
-  function finish(event: PointerEvent) {
-    if (!gesture || gesture.id !== event.pointerId) return;
-    const { spec, changed } = gesture;
+  function finish(event?: PointerEvent) {
+    if (!gesture || (event && gesture.id !== event.pointerId)) return;
+    const { spec, changed, id } = gesture;
     gesture = null;
+    delete spec.element.dataset.draggingRange;
     document.body.classList.remove('adjusting-value');
-    if (spec.element.hasPointerCapture(event.pointerId))
-      spec.element.releasePointerCapture(event.pointerId);
+    if (spec.element.hasPointerCapture(id)) spec.element.releasePointerCapture(id);
     if (changed) {
       suppressClick = true;
       onEnd();
@@ -85,6 +133,7 @@ export function installNumericControls<T extends NumericSpec>({
   }
   document.addEventListener('pointerup', finish);
   document.addEventListener('pointercancel', finish);
+  window.addEventListener('blur', () => finish());
   document.addEventListener(
     'click',
     (event) => {
@@ -92,7 +141,19 @@ export function installNumericControls<T extends NumericSpec>({
         event.preventDefault();
         event.stopImmediatePropagation();
         suppressClick = false;
+        return;
       }
+      if (event.detail !== 3) return;
+      const spec = resolve(event.target);
+      if (!spec) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finishWheel();
+      const value = Math.min(spec.max, Math.max(spec.min, spec.resetValue));
+      if (value === spec.value) return;
+      onBegin();
+      onChange(spec, value);
+      onEnd();
     },
     true,
   );

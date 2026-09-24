@@ -51,6 +51,11 @@ dialog textarea {
 #bands {
   overscroll-behavior-x: contain;
 }
+
+/* Continue scrolling the page when the preset list reaches either end. */
+#presets {
+  overscroll-behavior: auto;
+}
 dialog {
   max-height: calc(100dvh - 32px);
   overflow-y: auto;

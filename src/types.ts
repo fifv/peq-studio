@@ -125,6 +125,7 @@ export interface NumericSpec {
   key: string;
   element: HTMLElement;
   value: number;
+  resetValue: number;
   min: number;
   max: number;
   step: number;

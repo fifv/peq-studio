@@ -7,6 +7,10 @@
 
   .sidebar {
     min-height: 0;
+    height: calc(100dvh - 24px);
+    align-self: start;
+    position: sticky;
+    top: 12px;
   }
 
   #presets {
@@ -83,6 +87,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .workspace:has(.band-panel.expanded) {
+    height: auto;
+  }
+
+  .editor:has(.band-panel.expanded) {
+    grid-template-rows: auto auto auto var(--expanded-graph-height) auto auto auto;
   }
 }
 

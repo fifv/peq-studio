@@ -155,6 +155,7 @@ export function createChart({
             samplingFrequencyHz: state.sampleRate,
           });
           html += /* HTML */ `<path
+            data-curve-layer="bands"
             d="${curve((hz) => calculateFilterResponseDb(tf, hz, { samplingFrequencyHz: state.sampleRate }))}"
             fill="none"
             stroke="${bandColor(i)}"
@@ -166,22 +167,26 @@ export function createChart({
     if (layers.target && target)
       html += /* HTML */ `<path
         class="response-path target-path"
+        data-curve-layer="target"
         d="${curve((hz) => targetValue(hz) - offset(hz))}"
       />`;
     if (layers.source && source)
       html += /* HTML */ `<path
         class="response-path source-path"
+        data-curve-layer="source"
         d="${curve((hz) => sourceValue(hz) - offset(hz))}"
       />`;
     if (layers.combined)
       html += /* HTML */ `<path
         class="response-path combined-path"
+        data-curve-layer="combined"
         d="${curve((_hz, i) => combined[i])}"
       />`;
     const filteredPreampAdjustment = enabled && !display.includePreamp ? c.preampDb : 0;
     if (layers.filtered && source)
       html += /* HTML */ `<path
         class="response-path filtered-path"
+        data-curve-layer="filtered"
         d="${curve((hz, i) => sourceValue(hz) + combined[i] - filteredPreampAdjustment - offset(hz))}"
       />`;
     c.filters.forEach((f, i) => {
@@ -193,6 +198,17 @@ export function createChart({
           tabindex="0"
           aria-label="Band ${i + 1}: ${Math.round(f.fcHz)} Hz, ${signed(f.gainDb)} dB. Arrow keys adjust; Shift makes larger steps."
           ><circle cx="${xOf(f.fcHz)}" cy="${yOf(f.gainDb)}" r="17" fill="transparent" /><circle
+            class="point-hover-ring"
+            cx="${xOf(f.fcHz)}"
+            cy="${yOf(f.gainDb)}"
+            r="14"
+            fill="${bandColor(i)}"
+            fill-opacity=".12"
+            stroke="${bandColor(i)}"
+            stroke-width="1.5"
+            pointer-events="none"
+          /><circle
+            class="point-dot"
             cx="${xOf(f.fcHz)}"
             cy="${yOf(f.gainDb)}"
             r="${i === selected ? 7 : 5.5}"

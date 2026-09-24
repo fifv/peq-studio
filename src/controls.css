@@ -5,21 +5,62 @@
   min-height: calc(100vh - 24px);
 }
 .sidebar-heading {
-  padding: 22px 17px 18px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  padding: 22px 17px 10px;
 }
 .sidebar-brand {
-  gap: 6px;
+  gap: 8px;
 }
 .sidebar-brand > svg {
-  width: 19px;
-  height: 19px;
+  width: 23px;
+  height: 23px;
 }
 .sidebar-brand strong {
-  font-size: 12px;
+  font-size: 16px;
   letter-spacing: 0.3px;
 }
 .sidebar-brand strong span {
   margin-left: 3px;
+}
+.preset-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.preset-section-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #8799b2;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+.preset-section-heading h2 span {
+  margin: 0;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #1a2535;
+  color: #96a8c1;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.preset-section-heading .icon-button {
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border-color: transparent;
+  border-radius: 6px;
+}
+.preset-section-heading .icon-button:hover {
+  border-color: #34465f;
 }
 #presets {
   max-height: calc(100vh - 250px);
@@ -31,17 +72,16 @@
     min-height: calc(100vh - 20px);
   }
   .sidebar-heading {
+    flex-direction: row;
+    align-items: center;
     padding: 12px 14px;
   }
-  .sidebar-brand {
-    margin-bottom: 6px;
-  }
   .sidebar-brand > svg {
-    width: 17px;
-    height: 17px;
+    width: 21px;
+    height: 21px;
   }
   .sidebar-brand strong {
-    font-size: 11px;
+    font-size: 14px;
   }
   #presets {
     max-height: 80px;
@@ -50,6 +90,13 @@
 .source-path,
 .filtered-path {
   stroke-width: 1.8;
+}
+[data-curve-layer].is-dimmed {
+  opacity: 0.18;
+}
+[data-curve-layer].is-emphasized {
+  stroke-width: 3.5;
+  stroke-opacity: 1;
 }
 #preset-name[hidden],
 #rename-input[hidden] {
@@ -180,6 +227,7 @@
 }
 .band-panel {
   display: grid;
+  align-items: start;
   grid-template-columns: 126px 38px minmax(0, 1fr) 76px;
   gap: 14px;
   margin: 0 26px;
@@ -244,6 +292,8 @@
 .band-count {
   gap: 6px;
   align-items: flex-start;
+  justify-content: center;
+  height: 70px;
 }
 .band-count > span {
   font-size: 8px;
@@ -261,12 +311,48 @@
   scrollbar-width: thin;
   overflow-y: hidden;
   align-items: center;
+  touch-action: pan-y;
+  /* Disable selection before the drag threshold so text cannot grab the gesture. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+#bands[data-horizontal-scroll] {
+  cursor: grab;
+}
+#bands.dragging,
+#bands.dragging * {
+  cursor: grabbing !important;
+}
+.band-panel > :not(#bands) {
+  margin-top: 3px;
+}
+.band-panel.expanded #bands {
+  flex-wrap: wrap;
+  overflow: visible;
+  padding-bottom: calc(3px + var(--band-scrollbar-size, 0px));
+}
+.band-panel.expanded .band-card {
+  flex: 0 0 114px;
 }
 .band-card {
   min-width: 114px;
   height: 70px;
   border-radius: 7px;
   overflow: hidden;
+}
+.band-card.is-hovered {
+  border-color: var(--band);
+  background: color-mix(in srgb, var(--band) 12%, #101827);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--band) 45%, transparent);
+}
+.point-hover-ring {
+  opacity: 0;
+}
+.control-point.is-hovered .point-hover-ring {
+  opacity: 1;
+}
+.control-point.is-hovered .point-dot {
+  r: 7.5;
 }
 .band-toggle {
   width: 25px;
@@ -326,7 +412,7 @@
 }
 .rail-actions button {
   font-size: 10px;
-  padding: 7px 8px;
+  padding: 4px 8px;
   border-radius: 6px;
   white-space: nowrap;
 }
@@ -336,6 +422,9 @@
 }
 .detail-panel > .icon-button {
   position: static;
+  margin-top: 18px;
+}
+.detail-number {
   margin-top: 18px;
 }
 .detail-panel > label {
@@ -827,6 +916,7 @@ dialog .config-text {
   }
   .detail-number {
     grid-column: 1;
+    margin-top: 0;
   }
   .detail-panel label {
     min-width: 0;

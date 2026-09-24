@@ -408,42 +408,54 @@ svg {
   cursor: pointer;
   position: relative;
 }
-.power-label input {
-  position: absolute;
-  opacity: 0;
-  width: 40px;
-  right: 0;
-  height: 25px;
-  cursor: pointer;
-}
-.switch-track {
+input.toggle-input {
+  appearance: none;
   display: block;
-  background: #343f52;
-  width: 42px;
-  height: 25px;
-  border-radius: 20px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 22px;
+  margin: 0;
   padding: 3px;
-  pointer-events: none;
+  border: 1px solid #40516b;
+  border-radius: 999px;
+  background: #27354a;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
-.switch-track:before {
+input.toggle-input::before {
   content: '';
   display: block;
-  background: #b4c0d0;
-  width: 19px;
-  height: 19px;
+  background: #aabbd1;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  transition: transform 0.2s;
+  box-shadow: 0 1px 3px #0004;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
-.power-label input:checked + .switch-track {
-  background: #285db3;
+input.toggle-input:checked {
+  background: #3079ed;
+  border-color: #4e91ff;
 }
-.power-label input:checked + .switch-track:before {
-  transform: translateX(17px);
-  background: #d8e8ff;
+input.toggle-input:checked::before {
+  transform: translateX(14px);
+  background: #f0f6ff;
 }
-.power-label input:focus-visible + .switch-track {
-  outline: 2px solid #78a8ff;
-  outline-offset: 3px;
+label:hover > input.toggle-input:not(:disabled) {
+  border-color: #87b4ff;
+}
+input.toggle-input:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  input.toggle-input,
+  input.toggle-input::before {
+    transition: none;
+  }
 }
 .curve-toolbar {
   display: flex;
@@ -1041,6 +1053,12 @@ dialog textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.check-row > span {
+  min-width: 0;
+  line-height: 1.5;
 }
 .check-row input {
   margin: 0;

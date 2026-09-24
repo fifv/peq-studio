@@ -3,6 +3,7 @@ import { query, eventElement } from './dom.ts';
 import type { Workspace, LevelMethod } from './types.ts';
 import { LEVEL_METHODS, curveReferenceLevel } from './curve-level.ts';
 import { findCurve } from './curve-library.ts';
+import { renderToggle } from './ui/toggle.ts';
 
 export function createSettingsPopup({
   anchor,
@@ -140,9 +141,7 @@ export function createSettingsPopup({
       >
       <p class="level-explanation"></p>
       <p class="level-readout"></p>
-      <label class="check-row"
-        ><input type="checkbox" id="compensated" />Compensated view (subtract target)</label
-      >
+      ${renderToggle('Compensated view (subtract target)', { id: 'compensated' })}
       <p class="settings-note">
         Relative curve comparison, not a calibrated listening SPL. Drag values up/down or use the
         wheel; Shift for fine adjustment.
@@ -210,7 +209,7 @@ export function createSettingsPopup({
     });
     query('.settings-note', popup).insertAdjacentHTML(
       'beforebegin',
-      '<label class="check-row"><input type="checkbox" role="switch" id="include-preamp"/>Filtered curve includes preamp gain</label>',
+      renderToggle('Filtered curve includes preamp gain', { id: 'include-preamp' }),
     );
     document.body.append(popup);
     anchor.setAttribute('aria-expanded', 'true');

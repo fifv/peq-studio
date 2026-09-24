@@ -1,4 +1,7 @@
 import { createEditorControls } from './ui/editor-controls.ts';
+import { installBandRail } from './ui/band-rail.ts';
+import { installBandHover } from './ui/band-hover.ts';
+import { installCurveHover } from './ui/curve-hover.ts';
 import { createFileActions } from './ui/file-actions.ts';
 import { WorkspaceHistory } from './history.ts';
 import { openModal, chooseFile as chooseFileWithErrors } from './ui/dialog.ts';
@@ -479,7 +482,10 @@ document.addEventListener('click', (event) => {
   const band = eventElement(event).closest<HTMLElement>('[data-band]');
   if (band) {
     selected = +band.dataset.band!;
-    render();
+    // Keep card nodes in place so multi-click and hover gestures remain intact.
+    renderBandEditor();
+    editorControls.refresh();
+    chart.draw();
     return;
   }
   const toggle = eventElement(event).closest<HTMLElement>('[data-toggle]');
@@ -560,6 +566,8 @@ const editorControls = createEditorControls({
   onEnd: save,
   onRefresh: updateHistoryButtons,
 });
+installBandHover();
+installCurveHover();
 function updateHistoryButtons() {
   $<HTMLButtonElement>('[data-action="undo"]').disabled = !workspaceHistory.canUndo;
   $<HTMLButtonElement>('[data-action="redo"]').disabled = !workspaceHistory.canRedo;
@@ -599,9 +607,13 @@ document.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
     event.preventDefault();
     history(!event.shiftKey);
+  } else if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'y') {
+    event.preventDefault();
+    history(false);
   }
 });
 render();
+installBandRail();
 if (storageWarning) toast(storageWarning);
 async function restoreSelectedCurves() {
   await Promise.all(

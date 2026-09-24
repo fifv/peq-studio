@@ -1,6 +1,8 @@
 import type { Channel, CurveDisplay, Filter, NumericSpec, Workspace } from '../types.ts';
 import { installNumericControls } from '../numeric-controls.ts';
 import { clamp, formatFrequency, signed } from '../utils.ts';
+import { defaultCurveDisplay } from '../curve-level.ts';
+import { newBand } from '../model.ts';
 
 type FilterProperty = Extract<keyof Filter, 'fcHz' | 'gainDb' | 'q'>;
 type DisplayProperty = Extract<
@@ -60,6 +62,7 @@ export function createEditorControls({
         ...base,
         kind: 'preamp',
         value: getChannel().preampDb,
+        resetValue: 0,
         min: -Infinity,
         max: Infinity,
         step: 0.1,
@@ -72,6 +75,7 @@ export function createEditorControls({
         ...displayField,
         kind: 'display',
         value: display[displayField.property],
+        resetValue: defaultCurveDisplay()[displayField.property],
         min: name === 'level-max' ? display.minHz + 1 : displayField.min,
         max: name === 'level-min' ? display.maxHz - 1 : displayField.max,
       };
@@ -88,6 +92,7 @@ export function createEditorControls({
       key: `${name}:${index}`,
       index,
       value: filter[field.property],
+      resetValue: newBand()[field.property],
     };
   }
 
@@ -96,7 +101,7 @@ export function createEditorControls({
       const control = resolve(element);
       if (!control) return;
       if (element instanceof HTMLInputElement) {
-        if (element.type === 'range') {
+        if (element.type === 'range' && !element.hasAttribute('data-dragging-range')) {
           element.min = String(Math.min(-24, control.value));
           element.max = String(Math.max(12, control.value));
         }
@@ -171,6 +176,10 @@ export function createEditorControls({
   });
   document.addEventListener('change', (event) => {
     if (event.target instanceof HTMLInputElement && resolve(event.target)) {
+      if (event.target.type === 'range') {
+        typingKey = null;
+        return;
+      }
       refresh();
       onEnd();
     }
