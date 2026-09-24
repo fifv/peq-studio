@@ -1,0 +1,7 @@
+node_modules
+dist
+reference
+public/curves
+src/data
+src/vendor/*.js
+package-lock.json

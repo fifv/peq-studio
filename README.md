@@ -1,8 +1,32 @@
 # PEQ Studio — local TOPPING PEQ extraction
 
+> Notes from human: this project is entirely vibe coded by Codex-Astra(High)
+
 A standalone, local-first editor based on https://home.toppingaudio.com/peq.
 The DSP calculation and TXT/JSON import/export core are extracted from the public
 TOPPING Home v1.14.0 client bundle. The editor around them is a new local implementation.
+
+## Development structure
+
+The application, worker, tests, and maintenance scripts use strict TypeScript.
+Vite 8 serves and bundles the app; there is no UI framework or charting dependency.
+HTML, CSS, SVG, Web Workers, and localStorage provide the browser functionality.
+
+- `src/types.ts` defines the shared preset, filter, curve, workspace, and worker contracts.
+- `src/model.ts`, `validation.ts`, and `history.ts` handle persisted data, imports,
+  migrations, and undo/redo. Existing workspace storage remains compatible.
+- `src/response.ts`, `curve-math.ts`, `curve-level.ts`, and `autoeq.ts` contain the
+  numerical work. `autoeq-worker.ts` runs fitting away from the UI thread.
+- `src/main.ts` connects application state to the UI. `src/ui/` separates chart
+  rendering, templates, editor controls, file actions, dialogs, and popup placement.
+- Curve selection, display settings, and Auto EQ each have a focused controller.
+  Numeric gestures, validation, formatting, and popup behavior use shared helpers.
+- `src/backends/index.ts` defines the reserved device integration contract.
+- `tests/` uses the Node test runner through `tsx`; Prettier keeps formatting consistent.
+
+The generated JavaScript in `src/vendor/` and original bundles in `reference/`
+are deliberately preserved as upstream artifacts. Typed declarations describe the
+vendor API without rewriting its extracted filter calculations and file formats.
 
 ## Run
 
@@ -21,7 +45,7 @@ while the local server is running. No cloud account or API key is needed.
 ## Included
 
 - Unlimited preset count at the application level; browser localStorage capacity
-  is the only storage limit. A save failure is shown in the header. Keep JSON
+  is the only storage limit. A save failure is shown in the sidebar. Keep JSON
   workspace backups, particularly if importing many response curves.
 - Local preset creation, duplication, rename, deletion, search, undo/redo, backup
   and restore. Changes persist in the browser under `peq-studio.workspace.v1`.
@@ -104,7 +128,7 @@ It is not the optimizer from the separate AutoEq project or TOPPING's cloud serv
 
 ## Reserved backend interface
 
-`src/backends/index.js` defines `PeqBackend` and exports a controller. No backend
+`src/backends/index.ts` defines `PeqBackend` and exports a controller. No backend
 is currently registered, and editor changes do not send device commands.
 
 A future Equalizer APO integration can implement `connect(options)`, `disconnect()`
@@ -112,10 +136,10 @@ and `apply(configuration)` through a local companion service. Browsers cannot
 directly edit Equalizer APO's system configuration files. That service and its
 permission/connection UI are intentionally not implemented yet.
 
-```js
-import { backend } from './src/backends/index.js';
+```ts
+import { backend } from './src/backends/index.ts';
 backend.register(myEqualizerApoAdapter);
-await backend.connect({ /* future local service options */ });
+await backend.connect({/* future local service options */});
 await backend.apply(preset, { sampleRate: 48000 });
 await backend.disconnect();
 ```
@@ -131,17 +155,21 @@ modify the editor's saved presets.
 
 ```sh
 npm test
+npm run typecheck
 npm run build
+npm run format:check
 npm run extract
 ```
 
-`node scripts/fetch-targets.mjs` and `node scripts/fetch-sources.mjs` refresh the bundled catalogs from the
+`npx tsx scripts/fetch-targets.ts` and `npx tsx scripts/fetch-sources.ts` refresh the bundled catalogs from the
 original public endpoints. This is an explicit maintenance step requiring the
 internet; the running editor does not contact those endpoints. Built-in curves
 are stored in the app assets; localStorage holds only their selected IDs, while
 custom imports and their data remain in the local workspace and its backups.
 
 Tests cover analytical filter behavior, import/export round trips, curve
-interpolation, validation, large preset counts and the reserved backend contract.
+interpolation, validation, Auto EQ, undo/redo, large preset counts and the reserved backend contract.
+The production build runs the strict type checker first. Use `npm run format` to
+format authored source; bundled datasets and original vendor files are excluded.
 See [source provenance](reference/PROVENANCE.md) for the upstream bundle and the
 distinction between original extracted code and the newly implemented UI.

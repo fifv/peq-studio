@@ -15,7 +15,7 @@ schema and numeric filter mapping (1 peak, 2 low pass, 3 high pass, 4 low shelf,
 `npm run extract` produces the two pure modules under `src/vendor`. The original
 filter coefficients, response calculation, and REW/TXT/JSON parser/serializer are
 preserved in the vendor files. A minimal export adapter replaces their bundler registration API.
-The local `src/response.js` uses the original coefficients with an unclamped
+The local `src/response.ts` uses the original coefficients with an unclamped
 magnitude calculation, allowing responses beyond the original drawing clamp.
 No account, authentication, cloud, telemetry, or hardware modules are executed.
 
@@ -24,7 +24,7 @@ are a new local implementation. This is not TOPPING's original source repository
 or an official TOPPING distribution. No upstream license grant was found in the
 downloaded bundle; original code remains subject to its owner's rights.
 
-`src/autoeq.js` is a new local curve fitter, using greedy band selection and
+`src/autoeq.ts` is a new local curve fitter, using greedy band selection and
 bounded coordinate refinement with the already-extracted biquad coefficients.
 It does not copy the AutoEq project's optimizer or call TOPPING's cloud solver.
 The biquad families are described in the W3C Audio EQ Cookbook:
@@ -44,7 +44,7 @@ The upstream license metadata reads `Internal target curves`; it is retained
 along with the per-curve source URLs and measurement systems. Each curve was
 downloaded from the catalog's `/curves/<id>.json` endpoint. Original point values
 within the editor's 20–20,000 Hz range are preserved without approximation.
-`scripts/fetch-targets.mjs` reproduces this download. These public target curves
+`scripts/fetch-targets.ts` reproduces this download. These public target curves
 are bundled offline; the user's private custom curves are not copied from cloud.
 
 ## Built-in source library
@@ -55,5 +55,5 @@ Catalog version: `2025-08-18`, dataset `Headset_curve`. Each response is bundled
 under `public/curves/sources/` from the catalog's `/curves/<id>.json` endpoint.
 Upstream license metadata reads `AutoEQ-compatible dataset, see upstream project
 for details`; original source URLs and measurement metadata are retained.
-`scripts/fetch-sources.mjs` reproduces the download. Source selections load only
+`scripts/fetch-sources.ts` reproduces the download. Source selections load only
 local assets at runtime; numeric points are not duplicated into localStorage.
