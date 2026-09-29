@@ -52,6 +52,8 @@ export const newPreset = (
 ): Preset => ({
   id: crypto.randomUUID(),
   name,
+  targetId: '',
+  sourceId: '',
   linked: true,
   enabled: true,
   left: clone(channel),
@@ -75,8 +77,6 @@ export function initialState(): Workspace {
     presets: [example, flat],
     activeId: example.id,
     curves: [],
-    targetId: '',
-    sourceId: '',
     sampleRate: 48000,
     curveDisplay: defaultCurveDisplay(),
     autoEqOptions: defaultAutoEqOptions(),
@@ -135,6 +135,8 @@ export function importPreset(text: string, name: string): Preset {
     const p = record(json.preset);
     return {
       ...newPreset(String(p.name || name)),
+      targetId: typeof p.targetId === 'string' ? p.targetId : '',
+      sourceId: typeof p.sourceId === 'string' ? p.sourceId : '',
       linked: p.linked !== false,
       enabled: p.enabled !== false,
       left: validateChannel(p.left),
@@ -231,6 +233,19 @@ export function validateState(value: unknown): Workspace {
     return {
       id: p.id,
       name: p.name,
+      // Older workspaces shared these selections across every preset.
+      targetId:
+        typeof p.targetId === 'string'
+          ? p.targetId
+          : typeof state.targetId === 'string'
+            ? state.targetId
+            : '',
+      sourceId:
+        typeof p.sourceId === 'string'
+          ? p.sourceId
+          : typeof state.sourceId === 'string'
+            ? state.sourceId
+            : '',
       linked: p.linked !== false,
       enabled: p.enabled !== false,
       left: validateChannel(p.left),
@@ -266,8 +281,6 @@ export function validateState(value: unknown): Workspace {
     presets,
     curves,
     activeId: presets.some((p) => p.id === state.activeId) ? String(state.activeId) : presets[0].id,
-    targetId: typeof state.targetId === 'string' ? state.targetId : '',
-    sourceId: typeof state.sourceId === 'string' ? state.sourceId : '',
     sampleRate:
       typeof state.sampleRate === 'number' &&
       [44100, 48000, 96000, 192000].includes(state.sampleRate)

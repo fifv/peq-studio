@@ -16,6 +16,8 @@ export interface Channel {
 export interface Preset {
   id: string;
   name: string;
+  targetId: string;
+  sourceId: string;
   linked: boolean;
   enabled: boolean;
   left: Channel;
@@ -66,8 +68,6 @@ export interface Workspace {
   presets: Preset[];
   activeId: string;
   curves: MeasuredCurve[];
-  targetId: string;
-  sourceId: string;
   sampleRate: number;
   curveDisplay: CurveDisplay;
   autoEqOptions: AutoEqOptions;

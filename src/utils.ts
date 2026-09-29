@@ -1,3 +1,5 @@
+import type { Workspace } from './types.ts';
+
 export const clone = <T>(value: T): T => structuredClone(value);
 export const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -12,3 +14,6 @@ export const escapeHtml = (value: unknown): string =>
 export const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 export const curveRoles = ['target', 'source'] as const;
+
+export const activePreset = (state: Workspace) =>
+  state.presets.find((preset) => preset.id === state.activeId)!;

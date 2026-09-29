@@ -8,14 +8,14 @@ export const LEVEL_METHODS = {
   none: 'Original levels',
 };
 export const defaultCurveDisplay = (): CurveDisplay => ({
-  method: 'band-energy',
+  method: 'band-average',
   referenceDb: 0,
   minHz: 100,
   maxHz: 10000,
   targetOffsetDb: 0,
   sourceOffsetDb: 0,
   compensated: false,
-  includePreamp: true,
+  includePreamp: false,
   rangeDb: 25,
 });
 export function normalizeCurveDisplay(value: unknown = {}) {
@@ -23,7 +23,8 @@ export function normalizeCurveDisplay(value: unknown = {}) {
     ...defaultCurveDisplay(),
     ...(value && typeof value === 'object' ? value : {}),
   } as CurveDisplay;
-  if (!Object.hasOwn(LEVEL_METHODS, settings.method)) settings.method = 'band-energy';
+  if (!Object.hasOwn(LEVEL_METHODS, settings.method))
+    settings.method = defaultCurveDisplay().method;
   for (const [key, min, max] of [
     ['referenceDb', -60, 120],
     ['targetOffsetDb', -120, 120],
@@ -39,7 +40,7 @@ export function normalizeCurveDisplay(value: unknown = {}) {
     settings.maxHz = 10000;
   }
   settings.compensated = !!settings.compensated;
-  settings.includePreamp = settings.includePreamp !== false;
+  settings.includePreamp = settings.includePreamp === true;
   settings.rangeDb = Number.isFinite(settings.rangeDb) ? Math.max(5, settings.rangeDb) : 25;
   return settings;
 }

@@ -40,7 +40,7 @@ test('gains beyond the old limits survive gestures, persistence and both export 
   near(adjustedValue(12, 10, { min: -Infinity, max: Infinity, step: 0.1 }), 13);
 });
 test('broadband energy level is shift invariant and matches requested reference', () => {
-  const settings = defaultCurveDisplay();
+  const settings = { ...defaultCurveDisplay(), method: 'band-energy' as const };
   settings.referenceDb = 75;
   settings.sourceOffsetDb = -2.5;
   near(curveReferenceLevel(flat(83), settings), 83);
@@ -66,7 +66,12 @@ test('broadband energy averages power rather than one frequency or arithmetic dB
       [10000, 20],
     ],
   };
-  const settings = { ...defaultCurveDisplay(), minHz: 100, maxHz: 10000 };
+  const settings = {
+    ...defaultCurveDisplay(),
+    method: 'band-energy' as const,
+    minHz: 100,
+    maxHz: 10000,
+  };
   const analytic = 10 * Math.log10((100 - 1) / (2 * Math.log(10)));
   near(curveReferenceLevel(curve, settings), analytic, 0.001);
   near(curveReferenceLevel(curve, { ...settings, method: 'band-average' }), 10);
@@ -81,6 +86,9 @@ test('manual offsets apply independently after alignment and in original-level m
 });
 test('curve display settings persist and old backups migrate safely', () => {
   const state = initialState();
+  assert.equal(state.curveDisplay.method, 'band-average');
+  assert.equal(state.curveDisplay.includePreamp, false);
+  state.curveDisplay.method = 'band-energy';
   state.curveDisplay.referenceDb = 75;
   state.curveDisplay.sourceOffsetDb = -2;
   assert.deepEqual(
@@ -95,16 +103,16 @@ test('curve display settings persist and old backups migrate safely', () => {
     maxHz: 100,
     targetOffsetDb: Infinity,
   });
-  assert.equal(repaired.method, 'band-energy');
+  assert.equal(repaired.method, 'band-average');
   assert.equal(repaired.minHz, 100);
   assert.equal(repaired.targetOffsetDb, 0);
 });
-test('filtered-curve preamp switch defaults on for old workspaces and preserves an explicit off', () => {
+test('filtered-curve preamp switch defaults off and preserves an explicit on', () => {
   const state = initialState();
   delete (state.curveDisplay as Partial<CurveDisplay>).includePreamp;
-  assert.equal(validateState(JSON.parse(JSON.stringify(state))).curveDisplay.includePreamp, true);
-  state.curveDisplay.includePreamp = false;
   assert.equal(validateState(JSON.parse(JSON.stringify(state))).curveDisplay.includePreamp, false);
+  state.curveDisplay.includePreamp = true;
+  assert.equal(validateState(JSON.parse(JSON.stringify(state))).curveDisplay.includePreamp, true);
 });
 test('graph zoom survives workspace reload and older workspaces retain the default range', () => {
   const state = initialState();

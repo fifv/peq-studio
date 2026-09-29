@@ -1,4 +1,5 @@
 import type { CurvePoint } from '../src/types.ts';
+import { activePreset } from '../src/utils.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -8,9 +9,71 @@ import {
   searchCurves,
   removeCustomCurve,
 } from '../src/curve-library.ts';
-import { initialState, parseCurve, curveValue, validateState } from '../src/model.ts';
+import {
+  initialState,
+  parseCurve,
+  curveValue,
+  validateState,
+  newPreset,
+  exportPreset,
+  importPreset,
+} from '../src/model.ts';
+import { WorkspaceHistory } from '../src/history.ts';
 import { BUILTIN_SOURCES, loadBuiltinCurve } from '../src/curve-library.ts';
 import { readFile } from 'node:fs/promises';
+
+test('legacy shared selections migrate to each preset without overriding preset-specific choices', () => {
+  const state = initialState();
+  const legacy = {
+    ...state,
+    targetId: BUILTIN_TARGETS[0].id,
+    sourceId: BUILTIN_SOURCES[0].id,
+    presets: state.presets.map(({ targetId, sourceId, ...preset }) => preset),
+  };
+  const migrated = validateState(legacy);
+  for (const preset of migrated.presets) {
+    assert.equal(preset.targetId, legacy.targetId);
+    assert.equal(preset.sourceId, legacy.sourceId);
+  }
+  assert.equal(Object.hasOwn(migrated, 'targetId'), false);
+  const mixed = validateState({ ...legacy, presets: [state.presets[0], legacy.presets[1]] });
+  assert.equal(mixed.presets[0].targetId, '');
+  assert.equal(mixed.presets[0].sourceId, '');
+  assert.equal(mixed.presets[1].targetId, legacy.targetId);
+});
+
+test('curve choices follow the preset through switching, reload, duplication, export and undo', () => {
+  let state = initialState();
+  const [first, second] = state.presets;
+  first.targetId = BUILTIN_TARGETS[0].id;
+  first.sourceId = BUILTIN_SOURCES[0].id;
+  second.targetId = BUILTIN_SOURCES[1].id;
+  second.sourceId = BUILTIN_TARGETS[1].id;
+  state = validateState(JSON.parse(JSON.stringify(state)));
+  for (const expected of [first, second, first]) {
+    state.activeId = expected.id;
+    assert.equal(findCurve(state, 'target')?.id, expected.targetId);
+    assert.equal(findCurve(state, 'source')?.id, expected.sourceId);
+  }
+  const history = new WorkspaceHistory();
+  history.capture(state);
+  activePreset(state).targetId = '';
+  activePreset(state).sourceId = '';
+  assert.equal(state.presets[1].targetId, second.targetId);
+  state = history.restore(state, true)!;
+  assert.equal(findCurve(state, 'target')?.id, first.targetId);
+  assert.equal(findCurve(state, 'source')?.id, first.sourceId);
+  const duplicate = structuredClone(activePreset(state));
+  duplicate.id = 'copy';
+  state.presets.push(duplicate);
+  state.activeId = duplicate.id;
+  assert.equal(findCurve(state, 'target')?.id, first.targetId);
+  const imported = importPreset(exportPreset(duplicate), 'Imported');
+  assert.equal(imported.targetId, duplicate.targetId);
+  assert.equal(imported.sourceId, duplicate.sourceId);
+  assert.equal(newPreset().targetId, '');
+  assert.equal(newPreset().sourceId, '');
+});
 
 test('all 13 original built-in targets contain real, ordered response data', () => {
   assert.equal(BUILTIN_TARGETS.length, 13);
@@ -50,18 +113,18 @@ test('all custom imports are shared, including older source-only and target-only
     customCurves(restored, 'source').map((c) => c.id),
     [curve.id, 'target-1', 'source-1'],
   );
-  restored.targetId = 'source-1';
-  restored.sourceId = 'target-1';
+  activePreset(restored).targetId = 'source-1';
+  activePreset(restored).sourceId = 'target-1';
   assert.equal(findCurve(restored, 'target')!.id, 'source-1');
   assert.equal(findCurve(restored, 'source')!.id, 'target-1');
 });
 test('built-in selection survives workspace backup without duplicating catalog data', () => {
   const state = initialState();
-  state.targetId = BUILTIN_TARGETS[0].id;
+  activePreset(state).targetId = BUILTIN_TARGETS[0].id;
   const restored = validateState(JSON.parse(JSON.stringify(state)));
   assert.equal(restored.curves.length, 0);
   assert.equal(findCurve(restored, 'target')!.name, BUILTIN_TARGETS[0].name);
-  assert.equal(findCurve(restored, 'source', state.targetId), BUILTIN_TARGETS[0]);
+  assert.equal(findCurve(restored, 'source', activePreset(state).targetId), BUILTIN_TARGETS[0]);
 });
 test('curve search matches accented names and measurement systems', () => {
   assert.equal(searchCurves(BUILTIN_TARGETS, 'bruel')[0].name, 'Brüel Kjaer Target');
@@ -72,15 +135,17 @@ test('removing a custom curve clears both references and never deletes built-ins
   const state = initialState();
   const curve = parseCurve('20,0\n20000,2', 'Shared');
   state.curves.push(curve);
-  state.targetId = state.sourceId = curve.id;
+  for (const preset of state.presets) preset.targetId = preset.sourceId = curve.id;
   const before = structuredClone(state);
   assert.equal(removeCustomCurve(state, curve.id), true);
   assert.equal(state.curves.length, 0);
-  assert.equal(state.targetId, '');
-  assert.equal(state.sourceId, '');
+  for (const preset of state.presets) {
+    assert.equal(preset.targetId, '');
+    assert.equal(preset.sourceId, '');
+  }
   assert.equal(findCurve(before, 'target')!.id, curve.id);
-  state.targetId = BUILTIN_TARGETS[0].id;
-  assert.equal(removeCustomCurve(state, state.targetId), false);
+  activePreset(state).targetId = BUILTIN_TARGETS[0].id;
+  assert.equal(removeCustomCurve(state, activePreset(state).targetId), false);
   assert.ok(findCurve(state, 'target'));
 });
 test('all 465 headphone responses have complete local files and searchable brand names', async () => {
@@ -118,7 +183,7 @@ test('source responses load from local assets, retry failures, and survive selec
     return { ok: true, json: async () => data };
   });
   const state = initialState();
-  state.sourceId = source.id;
+  activePreset(state).sourceId = source.id;
   assert.ok(
     findCurve(validateState(JSON.parse(JSON.stringify(state))), 'source')!.points!.length > 100,
   );
@@ -135,8 +200,8 @@ test('either selector can load either built-in collection and restore crossed se
     source = BUILTIN_SOURCES[1];
   assert.equal(await loadBuiltinCurve('source', target.id), target);
   const state = initialState();
-  state.sourceId = target.id;
-  state.targetId = source.id;
+  activePreset(state).sourceId = target.id;
+  activePreset(state).targetId = source.id;
   const restored = validateState(JSON.parse(JSON.stringify(state)));
   assert.equal(findCurve(restored, 'source')!.id, target.id);
   assert.equal(findCurve(restored, 'target')!.id, source.id);

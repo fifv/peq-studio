@@ -1,5 +1,5 @@
 import type { Curve, MeasuredCurve, CurveRole, Workspace } from './types.ts';
-import { curveRoles } from './utils.ts';
+import { activePreset, curveRoles } from './utils.ts';
 import { readCurvePoints, record } from './validation.ts';
 type CurveFetcher = (url: string) => Promise<{ ok: boolean; json?: () => Promise<unknown> }>;
 import catalog from './data/builtin-targets.json' with { type: 'json' };
@@ -56,7 +56,11 @@ export function customCurves(state: Workspace, _kind?: CurveRole) {
   // not restrict selection: every import belongs to the shared custom library.
   return state.curves;
 }
-export function findCurve(state: Workspace, kind: CurveRole, id = state[`${kind}Id`]) {
+export function findCurve(
+  state: Workspace,
+  kind: CurveRole,
+  id = activePreset(state)[`${kind}Id`],
+) {
   return (
     customCurves(state, kind).find((curve) => curve.id === id) ??
     sourceCache.get(id) ??
@@ -83,6 +87,7 @@ export function searchCurves<T extends Curve>(curves: T[], query: string): T[] {
 export function removeCustomCurve(state: Workspace, id: string) {
   if (!state.curves.some((curve) => curve.id === id)) return false;
   state.curves = state.curves.filter((curve) => curve.id !== id);
-  for (const kind of curveRoles) if (state[`${kind}Id`] === id) state[`${kind}Id`] = '';
+  for (const preset of state.presets)
+    for (const kind of curveRoles) if (preset[`${kind}Id`] === id) preset[`${kind}Id`] = '';
   return true;
 }

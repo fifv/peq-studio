@@ -1,7 +1,7 @@
 import { positionPopup, installPopupEvents } from './ui/popover.ts';
 import { query, eventElement } from './dom.ts';
 import type { Curve, CurveRole, Workspace, PopupController } from './types.ts';
-import { escapeHtml, errorMessage } from './utils.ts';
+import { escapeHtml, errorMessage, activePreset } from './utils.ts';
 import {
   builtinCurves,
   TARGET_CATALOG_VERSION,
@@ -34,11 +34,15 @@ export function createCurvePicker({
   onImport: () => void;
 }) {
   const label = kind === 'target' ? 'Target curve' : 'Source response';
-  const selectedByCollection: Partial<Record<Collection, string>> = {};
+  const selectionsByPreset = new Map<string, Partial<Record<Collection, string>>>();
+  let presetId = getState().activeId;
+  let selectedByCollection: Partial<Record<Collection, string>> = {};
+  selectionsByPreset.set(presetId, selectedByCollection);
+  const selectedId = () => activePreset(getState())[`${kind}Id`];
   let view = collectionOf(findCurve(getState(), kind));
   let popup: HTMLDivElement | null = null;
   let search = '',
-    lastSelectedId = getState()[`${kind}Id`],
+    lastSelectedId = selectedId(),
     loading = false,
     error = '';
   root.className = 'curve-field';
@@ -78,9 +82,16 @@ export function createCurvePicker({
   const items = () => (view === 'custom' ? customCurves(getState(), kind) : builtinCurves(view));
   function update() {
     const selected = findCurve(getState(), kind);
+    if (presetId !== getState().activeId) {
+      close();
+      presetId = getState().activeId;
+      selectedByCollection = selectionsByPreset.get(presetId) ?? {};
+      selectionsByPreset.set(presetId, selectedByCollection);
+      view = collectionOf(selected);
+    }
     if (selected) selectedByCollection[collectionOf(selected)] = selected.id;
-    if (lastSelectedId !== getState()[`${kind}Id`]) {
-      lastSelectedId = getState()[`${kind}Id`];
+    if (lastSelectedId !== selectedId()) {
+      lastSelectedId = selectedId();
       if (selected && !loading) {
         view = collectionOf(selected);
         if (popup) renderPopup();
@@ -121,24 +132,23 @@ export function createCurvePicker({
   }
   function renderList() {
     if (!popup) return;
-    const state = getState(),
-      results = searchCurves(items(), search),
+    const results = searchCurves(items(), search),
       list = query('.curve-list', popup);
     list.innerHTML =
       results
         .map(
           (curve) =>
             /* HTML */ ` <div
-              class="curve-library-row ${state[`${kind}Id`] === curve.id ? 'selected' : ''}"
+              class="curve-library-row ${selectedId() === curve.id ? 'selected' : ''}"
             >
               <button
                 class="curve-choice"
                 data-curve-id="${escapeHtml(curve.id)}"
-                aria-pressed="${state[`${kind}Id`] === curve.id}"
+                aria-pressed="${selectedId() === curve.id}"
                 title="${escapeHtml(curve.name)}"
               >
                 <span class="curve-check" aria-hidden="true"
-                  >${state[`${kind}Id`] === curve.id ? '✓' : ''}</span
+                  >${selectedId() === curve.id ? '✓' : ''}</span
                 ><span
                   ><span class="curve-choice-name">${escapeHtml(curve.name)}</span
                   >${curve.measurementSystem ? /* HTML */ `<small>${escapeHtml(curve.measurementSystem)}</small>` : ''}</span
@@ -161,7 +171,7 @@ export function createCurvePicker({
     popup.querySelectorAll<HTMLButtonElement>('.curve-choice, [data-view]').forEach((button) => {
       button.disabled = loading;
     });
-    query<HTMLButtonElement>('[data-clear]', popup).disabled = loading || !state[`${kind}Id`];
+    query<HTMLButtonElement>('[data-clear]', popup).disabled = loading || !selectedId();
   }
   function renderPopup() {
     if (!popup) return;
@@ -237,6 +247,7 @@ export function createCurvePicker({
   }
   async function selectCurve(id: string, restore = false) {
     if (loading || !popup) return;
+    const selectionOwner = presetId;
     const activePopup = popup,
       scrollTop = query('.curve-list', popup).scrollTop,
       previousCollection = collectionOf(findCurve(getState(), kind));
@@ -245,7 +256,7 @@ export function createCurvePicker({
     renderList();
     try {
       await onSelect(id);
-      if (!id) delete selectedByCollection[previousCollection];
+      if (!id && selectionOwner === presetId) delete selectedByCollection[previousCollection];
     } catch (e) {
       error = errorMessage(e);
     } finally {
@@ -273,7 +284,7 @@ export function createCurvePicker({
     update();
     const remembered = selectedByCollection[view];
     if (remembered && items().some((curve) => curve.id === remembered)) {
-      if (remembered !== getState()[`${kind}Id`]) await selectCurve(remembered, true);
+      if (remembered !== selectedId()) await selectCurve(remembered, true);
       else revealSelected();
     } else {
       delete selectedByCollection[view];

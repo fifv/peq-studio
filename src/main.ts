@@ -6,7 +6,7 @@ import { createFileActions } from './ui/file-actions.ts';
 import { WorkspaceHistory } from './history.ts';
 import { openModal, chooseFile as chooseFileWithErrors } from './ui/dialog.ts';
 import { query as $, eventElement } from './dom.ts';
-import { escapeHtml as esc, errorMessage, curveRoles } from './utils.ts';
+import { escapeHtml as esc, errorMessage, curveRoles, activePreset } from './utils.ts';
 import type { Workspace, Preset, ChannelName, CurveRole, Layers, Filter } from './types.ts';
 import './style.css';
 import './curve-picker.css';
@@ -48,7 +48,7 @@ const layers: Layers = { target: true, source: true, bands: false, combined: tru
 const workspaceHistory = new WorkspaceHistory();
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-const preset = () => state.presets.find((p) => p.id === state.activeId)!;
+const preset = () => activePreset(state);
 const current = () => preset()[preset().linked ? 'left' : channel];
 function save() {
   try {
@@ -95,7 +95,6 @@ function history(back: boolean) {
   selected = -1;
   save();
   render();
-  void restoreSelectedCurves();
 }
 
 $('#app').innerHTML = appMarkup();
@@ -107,10 +106,11 @@ const curvePickers = curveRoles.map((kind) =>
     getState: () => state,
     onSelect: async (id) => {
       const request = ++curveRequests[kind];
+      const owner = preset();
       await loadBuiltinCurve(kind, id);
-      if (request === curveRequests[kind])
+      if (request === curveRequests[kind] && owner === preset())
         commit(() => {
-          state[`${kind}Id`] = id;
+          owner[`${kind}Id`] = id;
         });
     },
     onDelete: (id) => {
@@ -135,8 +135,6 @@ function autoEqSignature() {
   return JSON.stringify({
     preset: preset(),
     channel,
-    sourceId: state.sourceId,
-    targetId: state.targetId,
     sampleRate: state.sampleRate,
     display: state.curveDisplay,
   });
@@ -292,6 +290,7 @@ function render() {
   $('#bands').innerHTML = bandCards(c, selected);
   renderBandEditor();
   chart.draw();
+  void restoreSelectedCurves();
   $('#sample-rate-label').textContent = String(`${state.sampleRate / 1000} kHz`);
 }
 function renderBandEditor() {
@@ -340,7 +339,7 @@ function importCurveFile(kind: CurveRole) {
     const curve = { ...parseCurve(text, fileName || name), kind: 'both' as const };
     commit(() => {
       state.curves.push(curve);
-      state[`${kind}Id`] = curve.id;
+      preset()[`${kind}Id`] = curve.id;
     });
     if ($<HTMLDialogElement>('#modal').open) $<HTMLDialogElement>('#modal').close();
     toast(`Added ${curve.name}`);
@@ -364,7 +363,6 @@ const actions: Record<string, () => void | Promise<void>> = {
         state = restored;
         selected = -1;
       });
-      void restoreSelectedCurves();
     },
     toast,
   }),
@@ -618,11 +616,11 @@ if (storageWarning) toast(storageWarning);
 async function restoreSelectedCurves() {
   await Promise.all(
     curveRoles.map(async (kind) => {
-      const id = state[`${kind}Id`];
-      if (typeof id !== 'string' || !id.startsWith('builtin-source:')) return;
+      const id = preset()[`${kind}Id`];
+      if (!id.startsWith('builtin-source:') || findCurve(state, kind)?.points) return;
       try {
         await loadBuiltinCurve(kind, id);
-        if (state[`${kind}Id`] === id) {
+        if (preset()[`${kind}Id`] === id) {
           chart.draw();
           settingsPopup.update();
           autoEqPopup.update();
@@ -633,4 +631,3 @@ async function restoreSelectedCurves() {
     }),
   );
 }
-restoreSelectedCurves();
