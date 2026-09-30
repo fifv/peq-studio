@@ -1,17 +1,23 @@
 import type { Workspace, Preset, Channel, ChannelName } from '../types.ts';
 import { query as $ } from '../dom.ts';
-import { escapeHtml as esc, errorMessage } from '../utils.ts';
+import { escapeHtml as esc, errorMessage, clone, activePreset } from '../utils.ts';
 import { exportText, exportPreset, importPreset, validateState } from '../model.ts';
 import { icon } from './icons.ts';
 import { download, openModal, chooseFile as chooseFileWithErrors } from './dialog.ts';
+import type { ImportMode } from '../preset-edits.ts';
+import { exportFilteredCurve } from '../curve-export.ts';
+import { loadBuiltinCurve } from '../curve-library.ts';
+
+const IMPORT_MODE_KEY = 'peq-studio.import-mode';
 interface FileActionsOptions {
   getState: () => Workspace;
   getPreset: () => Preset;
   getChannelConfig: () => Channel;
   getChannelName: () => ChannelName;
-  onImport: (preset: Preset) => void;
+  onImport: (preset: Preset, mode: ImportMode) => void;
   onRestore: (state: Workspace) => void;
   toast: (message: string) => void;
+  undoToast: (message: string) => void;
 }
 export function createFileActions({
   getState,
@@ -21,17 +27,33 @@ export function createFileActions({
   onImport,
   onRestore,
   toast,
+  undoToast,
 }: FileActionsOptions): Record<string, () => void | Promise<void>> {
+  let preferredImportMode: ImportMode = 'new';
+  try {
+    const saved = localStorage.getItem(IMPORT_MODE_KEY);
+    if (saved === 'new' || saved === 'replace' || saved === 'append') preferredImportMode = saved;
+  } catch {
+    // Keep the preference for this session when browser storage is unavailable.
+  }
   const fileName = () => getPreset().name.replace(/[<>:"/\\|?*]/g, '_');
   const chooseFile = (
     accept: string,
     handler: (text: string, name: string, fileName: string) => void | Promise<void>,
   ) => chooseFileWithErrors(accept, handler, toast);
-  function doImport(text: string, name: string) {
+  const importMode = (): ImportMode =>
+    $<HTMLInputElement>('input[name="import-mode"]:checked').value as ImportMode;
+  function doImport(text: string, name: string, mode: ImportMode) {
     const preset = importPreset(text, name);
-    onImport(preset);
+    onImport(preset, mode);
     $<HTMLDialogElement>('#modal').close();
-    toast(`Imported ${preset.name}`);
+    undoToast(
+      mode === 'new'
+        ? `Imported ${preset.name}`
+        : mode === 'replace'
+          ? 'Preset replaced.'
+          : 'Bands appended.',
+    );
   }
   return {
     export: () =>
@@ -64,6 +86,12 @@ ${esc(exportText(getChannelConfig()))}</textarea>
             ><button data-action="export-json">
               ${icon('download')} Complete preset <small>Left + right channels · .json</small>
             </button>
+            <button data-action="export-filtered" ${getPreset().sourceId ? '' : 'disabled'}>
+              ${icon('download')} Filtered curve
+              <small
+                >${getPreset().sourceId ? 'Current display levels · frequency / dB · .csv' : 'Choose a source curve first'}</small
+              >
+            </button>
           </div>`,
       ),
     'copy-apo': async () => {
@@ -89,11 +117,47 @@ ${esc(exportText(getChannelConfig()))}</textarea>
       download(`${fileName()}.json`, exportPreset(getPreset()), 'application/json');
       $<HTMLDialogElement>('#modal').close();
     },
-    import: () =>
+    'export-filtered': async () => {
+      const state = clone(getState());
+      const preset = activePreset(state);
+      const channel = clone(getChannelConfig());
+      const name = `${fileName()}-${preset.linked ? 'LR' : getChannelName()}-filtered.csv`;
+      try {
+        await Promise.all([
+          loadBuiltinCurve('source', preset.sourceId),
+          state.curveDisplay.compensated ? loadBuiltinCurve('target', preset.targetId) : undefined,
+        ]);
+        download(name, exportFilteredCurve(state, channel, preset.enabled), 'text/csv');
+        $<HTMLDialogElement>('#modal').close();
+      } catch (error) {
+        toast(errorMessage(error));
+      }
+    },
+    import: () => {
       openModal(
         'Import preset',
-        /* HTML */ ` <p>
-            Paste an Equalizer APO configuration below. Import creates a new local preset.
+        /* HTML */ ` <p>Paste an Equalizer APO configuration below or choose a file.</p>
+          <fieldset class="import-modes">
+            <legend>Import into</legend>
+            <label
+              ><input type="radio" name="import-mode" value="new" checked /><span
+                >New preset</span
+              ></label
+            >
+            <label
+              ><input type="radio" name="import-mode" value="replace" /><span
+                >Replace current</span
+              ></label
+            >
+            <label
+              ><input type="radio" name="import-mode" value="append" /><span
+                >Append to current</span
+              ></label
+            >
+          </fieldset>
+          <p class="small-text">
+            Replace updates filters and preamp. Append adds bands and keeps the current preamp. Both
+            can be undone; stereo imports preserve separate channels.
           </p>
           <label class="config-label" for="import-text">APO configuration</label
           ><textarea
@@ -106,16 +170,30 @@ ${esc(exportText(getChannelConfig()))}</textarea>
           ></textarea>
           <p class="form-error" id="import-error" role="alert"></p>
           <div class="modal-actions">
-            <button class="primary" data-action="import-paste">Import as new preset</button>
+            <button class="primary" data-action="import-paste">Import configuration</button>
           </div>
           <div class="or-divider">or import a file</div>
           <button data-action="import-file" class="wide">${icon('upload')} Choose a file</button>
           <p class="small-text">TOPPING / REW / Equalizer APO TXT, filter CSV, or PEQ JSON.</p>`,
-      ),
-    'import-file': () => chooseFile('.txt,.json,.csv', (text, name) => doImport(text, name)),
+      );
+      $<HTMLInputElement>(`input[name="import-mode"][value="${preferredImportMode}"]`).checked =
+        true;
+      $('.import-modes').addEventListener('change', () => {
+        preferredImportMode = importMode();
+        try {
+          localStorage.setItem(IMPORT_MODE_KEY, preferredImportMode);
+        } catch {
+          // Reopening the dialog still remembers the choice in this session.
+        }
+      });
+    },
+    'import-file': () => {
+      const mode = importMode();
+      chooseFile('.txt,.json,.csv', (text, name) => doImport(text, name, mode));
+    },
     'import-paste': () => {
       try {
-        doImport($<HTMLTextAreaElement>('#import-text').value, 'Imported preset');
+        doImport($<HTMLTextAreaElement>('#import-text').value, 'Imported preset', importMode());
       } catch (e) {
         $('#import-error').textContent = String(errorMessage(e));
       }
@@ -134,7 +212,7 @@ ${esc(exportText(getChannelConfig()))}</textarea>
         const restored = validateState(JSON.parse(text));
         onRestore(restored);
         $<HTMLDialogElement>('#modal').close();
-        toast('Workspace restored.');
+        undoToast('Workspace restored.');
       }),
     'close-modal': () => $<HTMLDialogElement>('#modal').close(),
   };

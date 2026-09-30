@@ -164,6 +164,14 @@ export function bandCards(c: Channel, selected: number) {
             ><button class="band-remove" data-remove="${i}" aria-label="Remove band ${i + 1}">
               ×
             </button>
+            <button
+              class="band-reorder"
+              data-band-reorder="${i}"
+              aria-label="Reorder band ${i + 1}"
+              title="Drag to reorder · arrow keys to move"
+            >
+              ⠿
+            </button>
           </div>`,
       )
       .join('') +

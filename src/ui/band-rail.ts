@@ -50,6 +50,7 @@ export function installBandRail() {
   });
 
   rail.addEventListener('pointerdown', (event) => {
+    if (event.target instanceof Element && event.target.closest('[data-band-reorder]')) return;
     if (event.button !== 0 || panel.classList.contains('expanded')) return;
     if (rail.scrollWidth <= rail.clientWidth) return;
     drag = {

@@ -3,7 +3,7 @@ import { query as $ } from '../dom.ts';
 import { clamp, formatFrequency as fmt, signed } from '../utils.ts';
 import { FREQUENCIES, bandColor } from '../model.ts';
 import { findCurve } from '../curve-library.ts';
-import { curveShift } from '../curve-level.ts';
+import { displayedCurves } from '../curve-export.ts';
 import { interpolate } from '../curve-math.ts';
 import { getTransferFunction, calculateFilterResponseDb } from '../response.ts';
 import { hoverMarkup } from '../chart-hover.ts';
@@ -78,10 +78,8 @@ export function createChart({
     const display = state.curveDisplay,
       compensated = display.compensated,
       range = display.rangeDb;
-    const targetShift = curveShift(target, 'target', display),
-      sourceShift = curveShift(source, 'source', display);
-    const targetValue = (hz: number) => (target ? interpolate(target.points, hz) + targetShift : 0);
-    const sourceValue = (hz: number) => (source ? interpolate(source.points, hz) + sourceShift : 0);
+    const { targetShift, sourceShift, targetValue, sourceValue, offset, filteredValue } =
+      displayedCurves(source, target, display);
     const reference = display.method === 'none' ? 0 : display.referenceDb;
     axisMin = Math.min(-range, compensated ? -range : reference - range);
     axisMax = Math.max(range, compensated ? range : reference + range);
@@ -99,7 +97,6 @@ export function createChart({
       FREQUENCIES.map(
         (hz, i) => `${i ? 'L' : 'M'}${xOf(hz).toFixed(2)},${yOf(fn(hz, i)).toFixed(2)}`,
       ).join(' ');
-    const offset = (hz: number) => (compensated && target ? targetValue(hz) : 0);
     const sampling = { samplingFrequencyHz: state.sampleRate };
     const transfers = enabled
       ? c.filters
@@ -182,12 +179,11 @@ export function createChart({
         data-curve-layer="combined"
         d="${curve((_hz, i) => combined[i])}"
       />`;
-    const filteredPreampAdjustment = enabled && !display.includePreamp ? c.preampDb : 0;
     if (layers.filtered && source)
       html += /* HTML */ `<path
         class="response-path filtered-path"
         data-curve-layer="filtered"
-        d="${curve((hz, i) => sourceValue(hz) + combined[i] - filteredPreampAdjustment - offset(hz))}"
+        d="${curve((hz, i) => filteredValue(hz, combined[i], c.preampDb, enabled))}"
       />`;
     c.filters.forEach((f, i) => {
       if (f.enabled)
@@ -238,7 +234,7 @@ export function createChart({
         readings.push({
           name: 'Filtered',
           color: '#40c6b9',
-          db: sourceValue(hz) + total - filteredPreampAdjustment - offset(hz),
+          db: filteredValue(hz, total, c.preampDb, enabled),
         });
       const f = c.filters[selected];
       if (layers.bands && enabled && f?.enabled)

@@ -1,5 +1,7 @@
 import { createEditorControls } from './ui/editor-controls.ts';
 import { installBandRail } from './ui/band-rail.ts';
+import { installBandReordering } from './ui/band-reorder.ts';
+import { applyPresetImport, moveBand } from './preset-edits.ts';
 import { installBandHover } from './ui/band-hover.ts';
 import { installCurveHover } from './ui/curve-hover.ts';
 import { createFileActions } from './ui/file-actions.ts';
@@ -47,6 +49,7 @@ const curveRequests = { target: 0, source: 0 };
 const layers: Layers = { target: true, source: true, bands: false, combined: true, filtered: true };
 const workspaceHistory = new WorkspaceHistory();
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let hasHistoryToast = false;
 
 const preset = () => activePreset(state);
 const current = () => preset()[preset().linked ? 'left' : channel];
@@ -60,6 +63,7 @@ function save() {
   }
 }
 function snapshot() {
+  dismissHistoryToast();
   workspaceHistory.capture(state);
 }
 function commit(fn: () => void) {
@@ -73,6 +77,7 @@ function syncLinked() {
   if (preset().linked) preset().right = clone(preset().left);
 }
 function toast(message: string, action?: () => void) {
+  hasHistoryToast = false;
   const element = $('#toast');
   element.textContent = message;
   if (action) {
@@ -88,9 +93,19 @@ function toast(message: string, action?: () => void) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => element.classList.remove('visible'), action ? 10000 : 4000);
 }
+function undoToast(message: string) {
+  toast(message, () => history(true));
+  hasHistoryToast = true;
+}
+function dismissHistoryToast() {
+  if (!hasHistoryToast) return;
+  $('#toast').classList.remove('visible');
+  hasHistoryToast = false;
+}
 function history(back: boolean) {
   const restored = workspaceHistory.restore(state, back);
   if (!restored) return;
+  dismissHistoryToast();
   state = restored;
   selected = -1;
   save();
@@ -115,7 +130,7 @@ const curvePickers = curveRoles.map((kind) =>
     },
     onDelete: (id) => {
       commit(() => removeCustomCurve(state, id));
-      toast('Curve removed. Undo is available.');
+      undoToast('Curve removed.');
     },
     onImport: () => importCurveFile(kind),
   }),
@@ -174,8 +189,8 @@ const autoEqPopup = createAutoEqPopup({
       preset().enabled = true;
       selected = result.filters.length ? 0 : -1;
     });
-    toast(
-      `Auto EQ: ${result.filters.length} bands · fit error ${result.fit.before.toFixed(2)} → ${result.fit.after.toFixed(2)} dB. Undo available.`,
+    undoToast(
+      `Auto EQ: ${result.filters.length} bands · fit error ${result.fit.before.toFixed(2)} → ${result.fit.after.toFixed(2)} dB.`,
     );
   },
 });
@@ -342,7 +357,7 @@ function importCurveFile(kind: CurveRole) {
       preset()[`${kind}Id`] = curve.id;
     });
     if ($<HTMLDialogElement>('#modal').open) $<HTMLDialogElement>('#modal').close();
-    toast(`Added ${curve.name}`);
+    undoToast(`Added ${curve.name}`);
   });
 }
 const actions: Record<string, () => void | Promise<void>> = {
@@ -351,10 +366,9 @@ const actions: Record<string, () => void | Promise<void>> = {
     getPreset: preset,
     getChannelConfig: current,
     getChannelName: () => channel,
-    onImport: (p) => {
+    onImport: (p, mode) => {
       commit(() => {
-        state.presets.push(p);
-        state.activeId = p.id;
+        applyPresetImport(state, p, mode);
         selected = -1;
       });
     },
@@ -365,6 +379,7 @@ const actions: Record<string, () => void | Promise<void>> = {
       });
     },
     toast,
+    undoToast,
   }),
   new: () =>
     commit(() => {
@@ -431,7 +446,7 @@ const actions: Record<string, () => void | Promise<void>> = {
       current().filters = [];
       selected = -1;
     });
-    toast('Bands cleared for the active channel. Undo is available.');
+    undoToast('Bands cleared for the active channel.');
   },
   'auto-preamp': () => {
     const c = current();
@@ -612,6 +627,11 @@ document.addEventListener('keydown', (event) => {
 });
 render();
 installBandRail();
+installBandReordering($('#bands'), (from, to) => {
+  commit(() => {
+    selected = moveBand(current(), from, to, selected);
+  });
+});
 if (storageWarning) toast(storageWarning);
 async function restoreSelectedCurves() {
   await Promise.all(

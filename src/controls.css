@@ -345,6 +345,92 @@
   background: color-mix(in srgb, var(--band) 12%, #101827);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--band) 45%, transparent);
 }
+.band-reorder {
+  position: absolute;
+  right: 2px;
+  bottom: 5px;
+  width: 16px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6f839e;
+  cursor: grab;
+  touch-action: none;
+  line-height: 1;
+}
+.band-reorder:hover {
+  color: #d6e0f0;
+  background: #c8dcff12;
+}
+.band-card.reordering {
+  opacity: 0.45;
+}
+.band-card.reorder-before::after,
+.band-card.reorder-after::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #80b2ff;
+  z-index: 1;
+  pointer-events: none;
+}
+.band-card.reorder-before::after {
+  left: 0;
+}
+.band-card.reorder-after::after {
+  right: 0;
+}
+#bands.reordering-bands,
+#bands.reordering-bands * {
+  cursor: grabbing !important;
+}
+.import-modes {
+  display: flex;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  margin: 18px 0 8px;
+}
+.import-modes legend {
+  font-size: 12px;
+  color: #95a4bc;
+  margin-bottom: 8px;
+}
+.import-modes label {
+  position: relative;
+  flex: 1;
+  cursor: pointer;
+}
+.import-modes input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.import-modes span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 10px 8px;
+  border: 1px solid #293a50;
+  border-radius: 7px;
+  background: #101827;
+  font-size: 12px;
+  text-align: center;
+}
+.import-modes input:checked + span {
+  background: #1b3358;
+  border-color: #508bdf;
+  color: #dceaff;
+}
+.import-modes input:focus-visible + span {
+  outline: 2px solid #80b2ff;
+  outline-offset: 2px;
+}
 .point-hover-ring {
   opacity: 0;
 }
