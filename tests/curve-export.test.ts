@@ -64,3 +64,16 @@ test('export rejects absent or unloaded source data instead of exporting a fabri
   preset.sourceId = BUILTIN_SOURCES[0].id;
   assert.throws(() => exportFilteredCurve(state, preset.left, true), /still loading/);
 });
+
+test('filtered exports match preamp-only comparison and the display preamp preference', () => {
+  const { state, preset } = setup();
+  const values = (enabled = true) =>
+    parseCurve(exportFilteredCurve(state, preset.left, enabled, false), 'Comparison').points.map(
+      ([, db]) => db,
+    );
+  state.curveDisplay.includePreamp = true;
+  assert.ok(values().every((db) => db === 77));
+  state.curveDisplay.includePreamp = false;
+  assert.ok(values().every((db) => db === 80));
+  assert.ok(values(false).every((db) => db === 80));
+});

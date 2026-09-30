@@ -2,7 +2,7 @@ import type { Channel, CurveDisplay, MeasuredCurve, Workspace } from './types.ts
 import { curveShift } from './curve-level.ts';
 import { interpolate } from './curve-math.ts';
 import { findCurve } from './curve-library.ts';
-import { FREQUENCIES, response } from './model.ts';
+import { FREQUENCIES, response, playbackChannel } from './model.ts';
 
 /** Shared by the graph, hover readings and export so displayed levels agree. */
 export function displayedCurves(
@@ -20,7 +20,12 @@ export function displayedCurves(
   return { targetShift, sourceShift, targetValue, sourceValue, offset, filteredValue };
 }
 
-export function exportFilteredCurve(state: Workspace, channel: Channel, enabled: boolean): string {
+export function exportFilteredCurve(
+  state: Workspace,
+  channel: Channel,
+  enabled: boolean,
+  filtersEnabled = true,
+): string {
   const source = findCurve(state, 'source');
   const target = findCurve(state, 'target');
   if (!source) throw Error('Choose a source curve before exporting the filtered curve.');
@@ -31,15 +36,16 @@ export function exportFilteredCurve(state: Workspace, channel: Channel, enabled:
     target?.points ? { ...target, points: target.points } : null,
     state.curveDisplay,
   );
+  const playing = playbackChannel(channel, { enabled, filtersEnabled });
   const rows = FREQUENCIES.map((hz) => {
-    const combined = enabled ? response(channel, hz, state.sampleRate) : 0;
+    const combined = response(playing, hz, state.sampleRate);
     const db = filteredValue(hz, combined, channel.preampDb, enabled);
     if (!Number.isFinite(db)) throw Error('The filtered curve contains an invalid amplitude.');
     return `${hz.toFixed(6)},${db.toFixed(6)}`;
   });
   return [
     '# Filtered curve — current display levels',
-    `# Sample rate: ${state.sampleRate} Hz; PEQ: ${enabled ? 'on' : 'bypassed'}`,
+    `# Sample rate: ${state.sampleRate} Hz; PEQ: ${!enabled ? 'bypassed' : filtersEnabled ? 'on' : 'preamp only'}`,
     `# Alignment: ${state.curveDisplay.method}; preamp: ${state.curveDisplay.includePreamp ? 'included' : 'excluded'}; compensated: ${state.curveDisplay.compensated ? 'yes' : 'no'}`,
     'Frequency (Hz),Amplitude (dB)',
     ...rows,

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "backend": "go run ./backend",
+    "backend:build": "go build -o bin/peqstudio.exe ./backend",
+    "backend:test": "go test ./...",
     "dev": "vite --host 127.0.0.1",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",

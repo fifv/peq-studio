@@ -16,6 +16,7 @@ export function applyPresetImport(state: Workspace, imported: Preset, mode: Impo
     current.right = clone(imported.linked ? imported.left : imported.right);
     current.linked = imported.linked;
     current.enabled = imported.enabled;
+    current.filtersEnabled = imported.filtersEnabled;
     return;
   }
   if (current.linked) current.right = clone(current.left);

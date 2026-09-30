@@ -4,20 +4,34 @@ export interface BackendConfiguration {
   version: number;
   name: string;
   enabled: boolean;
+  filtersEnabled: boolean;
   linked: boolean;
   sampleRate: number;
   left: Channel;
   right: Channel;
 }
-/** Optional adapter to a local companion service. Editing never applies device changes. */
+/** Adapter to a local companion service. */
 export interface PeqBackend {
   id: string;
   name: string;
   connect(options?: Record<string, unknown>): Promise<void>;
   disconnect(): Promise<void>;
-  /** Apply both channels; disabled means full bypass including preamp.
+  /** Apply both channels; enabled=false bypasses everything, filtersEnabled=false keeps preamp.
    * Reject unsupported settings with an actionable error; never silently truncate. */
   apply(configuration: BackendConfiguration): Promise<void>;
+}
+export function backendConfiguration(preset: Preset, sampleRate = 48000): BackendConfiguration {
+  if (![44100, 48000, 96000, 192000].includes(sampleRate)) throw Error('Unsupported sample rate.');
+  return clone({
+    version: 1,
+    name: preset.name,
+    enabled: preset.enabled !== false,
+    filtersEnabled: preset.filtersEnabled !== false,
+    linked: preset.linked !== false,
+    sampleRate,
+    left: validateChannel(preset.left),
+    right: validateChannel(preset.linked !== false ? preset.left : preset.right),
+  });
 }
 export function createBackendController() {
   let adapter: PeqBackend | null = null,
@@ -67,17 +81,7 @@ export function createBackendController() {
     async apply(preset: Preset, { sampleRate = 48000 } = {}) {
       requireIdle();
       if (!adapter || !connected) throw Error('Connect a backend before applying PEQ.');
-      if (![44100, 48000, 96000, 192000].includes(sampleRate))
-        throw Error('Unsupported sample rate.');
-      const configuration = clone({
-        version: 1,
-        name: preset.name,
-        enabled: preset.enabled !== false,
-        linked: preset.linked !== false,
-        sampleRate,
-        left: validateChannel(preset.left),
-        right: validateChannel(preset.linked ? preset.left : preset.right),
-      });
+      const configuration = backendConfiguration(preset, sampleRate);
       busy = true;
       try {
         await adapter.apply(configuration);
@@ -88,6 +92,5 @@ export function createBackendController() {
   };
 }
 
-// Future integrations register here. Merely editing a preset never writes to a
-// device. A future UI must explicitly connect and apply through this controller.
+// Kept for integrations that need explicit connection/application control.
 export const backend = createBackendController();

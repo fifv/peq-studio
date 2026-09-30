@@ -56,6 +56,7 @@ export const newPreset = (
   sourceId: '',
   linked: true,
   enabled: true,
+  filtersEnabled: true,
   left: clone(channel),
   right: clone(channel),
 });
@@ -139,6 +140,7 @@ export function importPreset(text: string, name: string): Preset {
       sourceId: typeof p.sourceId === 'string' ? p.sourceId : '',
       linked: p.linked !== false,
       enabled: p.enabled !== false,
+      filtersEnabled: p.filtersEnabled !== false,
       left: validateChannel(p.left),
       right: validateChannel(p.linked !== false ? p.left : p.right),
     };
@@ -223,6 +225,14 @@ export function response(channel: Channel, hz: number, sampleRate = 48000) {
     samplingFrequencyHz: sampleRate,
   });
 }
+/** A/B comparison keeps the stored bands intact and retains each channel's preamp. */
+export function playbackChannel(
+  channel: Channel,
+  { enabled, filtersEnabled }: Pick<Preset, 'enabled' | 'filtersEnabled'>,
+): Channel {
+  if (!enabled) return { preampDb: 0, filters: [] };
+  return filtersEnabled === false ? { preampDb: channel.preampDb, filters: [] } : channel;
+}
 export function validateState(value: unknown): Workspace {
   const state = record(value);
   if (state?.version !== 1 || !Array.isArray(state.presets) || !state.presets.length)
@@ -248,6 +258,7 @@ export function validateState(value: unknown): Workspace {
             : '',
       linked: p.linked !== false,
       enabled: p.enabled !== false,
+      filtersEnabled: p.filtersEnabled !== false,
       left: validateChannel(p.left),
       right: validateChannel(p.right),
     };

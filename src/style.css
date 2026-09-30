@@ -375,6 +375,16 @@ svg {
   display: flex;
   gap: 4px;
 }
+#compare {
+  min-width: 108px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#compare[aria-pressed='true'] {
+  color: #efa57c;
+  border-color: #8d6743;
+  background: #30241c;
+}
 .history button {
   border: 0;
 }
@@ -910,6 +920,20 @@ input.toggle-input:disabled {
   font-size: 9px;
   gap: 20px;
   border-top: 1px solid #1b2636;
+}
+#backend-status {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  font-size: inherit;
+  color: var(--muted);
+  white-space: nowrap;
+}
+#backend-status[data-status='synced'] {
+  color: #82ce91;
+}
+#backend-status[data-status='error'] {
+  color: #efa57c;
 }
 .divider {
   margin: 0 9px;

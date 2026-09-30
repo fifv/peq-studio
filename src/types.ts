@@ -20,6 +20,7 @@ export interface Preset {
   sourceId: string;
   linked: boolean;
   enabled: boolean;
+  filtersEnabled: boolean;
   left: Channel;
   right: Channel;
 }

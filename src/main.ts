@@ -1,4 +1,6 @@
 import { createEditorControls } from './ui/editor-controls.ts';
+import { createEqualizerApoBackend } from './backends/equalizer-apo.ts';
+import { createLiveSync } from './backends/live-sync.ts';
 import { installBandRail } from './ui/band-rail.ts';
 import { installBandReordering } from './ui/band-reorder.ts';
 import { applyPresetImport, moveBand } from './preset-edits.ts';
@@ -54,6 +56,7 @@ let hasHistoryToast = false;
 const preset = () => activePreset(state);
 const current = () => preset()[preset().linked ? 'left' : channel];
 function save() {
+  syncBackend();
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
     $('#save-status').textContent = 'Saved locally';
@@ -113,6 +116,24 @@ function history(back: boolean) {
 }
 
 $('#app').innerHTML = appMarkup();
+
+const apoBackend = createEqualizerApoBackend();
+let backendMessage = 'Run the Go console backend locally to write peqstudio.txt.';
+const liveSync = createLiveSync(apoBackend, (status) => {
+  backendMessage = status.message;
+  const element = $('#backend-status');
+  element.textContent =
+    status.kind === 'synced'
+      ? 'APO · Synced'
+      : status.kind === 'syncing'
+        ? 'APO · Syncing…'
+        : 'APO · Not synced';
+  element.dataset.status = status.kind;
+  element.title = `${status.message} Click for setup details.`;
+});
+function syncBackend() {
+  liveSync.update(preset(), state.sampleRate);
+}
 
 const curvePickers = curveRoles.map((kind) =>
   createCurvePicker({
@@ -187,6 +208,7 @@ const autoEqPopup = createAutoEqPopup({
       current().filters = result.filters;
       current().preampDb = result.preampDb;
       preset().enabled = true;
+      preset().filtersEnabled = true;
       selected = result.filters.length ? 0 : -1;
     });
     undoToast(
@@ -275,6 +297,13 @@ function render() {
   updateHistoryButtons();
   $('#channel-mode').innerHTML = channelButtons(p, channel);
   $<HTMLInputElement>('#power').checked = p.enabled;
+  const compare = $<HTMLButtonElement>('#compare');
+  compare.disabled = !p.enabled;
+  compare.textContent = p.filtersEnabled ? 'A · EQ' : 'B · Preamp only';
+  compare.setAttribute('aria-pressed', String(!p.filtersEnabled));
+  compare.title = !p.enabled
+    ? 'Turn Power on to compare EQ with preamp only'
+    : 'Compare with filters bypassed, keeping the same preamp · Shortcut B';
   curvePickers.forEach((picker) => picker.update());
   settingsPopup.update();
   autoEqPopup.update();
@@ -327,6 +356,7 @@ const chart = createChart({
   onBegin: snapshot,
   onChange: () => {
     syncLinked();
+    syncBackend();
     editorControls.refresh();
   },
   onEnd: () => {
@@ -361,6 +391,29 @@ function importCurveFile(kind: CurveRole) {
   });
 }
 const actions: Record<string, () => void | Promise<void>> = {
+  compare: () => {
+    if (!preset().enabled) return;
+    commit(() => {
+      preset().filtersEnabled = !preset().filtersEnabled;
+    });
+  },
+  'backend-info': () => {
+    openModal(
+      'Equalizer APO live sync',
+      `<p>${esc(backendMessage)}</p>
+       <p>Start the console backend with <code>npm run backend</code>. Both this editor and the
+       GitHub Pages editor connect to <code>127.0.0.1:8765</code>.
+       Allow local network access for this site if your browser asks.
+       Changes to the active preset are written automatically, including while dragging.</p>
+       ${apoBackend.configPath ? `<p>Managed file: <code>${esc(apoBackend.configPath)}</code></p>` : ''}
+       <p>In Equalizer APO Configuration Editor, add an Include configuration pointing to
+       <code>peqstudio.txt</code>, or add <code>Include: peqstudio.txt</code> to your configuration.
+       You control when to include it. PEQ Studio never edits <code>config.txt</code>.</p>
+       <p>“Synced” confirms the file was saved. Audio changes only after you include it in
+       an active Equalizer APO configuration. Closing the console keeps the last settings.</p>
+       <div class="modal-actions"><button data-action="close-modal">Close</button></div>`,
+    );
+  },
   ...createFileActions({
     getState: () => state,
     getPreset: preset,
@@ -573,6 +626,7 @@ const editorControls = createEditorControls({
   onBegin: snapshot,
   onChange: () => {
     syncLinked();
+    syncBackend();
     chart.draw();
     settingsPopup.update();
   },
@@ -615,8 +669,18 @@ document.addEventListener('change', (event) => {
     });
 });
 document.addEventListener('keydown', (event) => {
-  if (eventElement(event).matches('input,textarea,select') || $<HTMLDialogElement>('#modal').open)
+  if (
+    eventElement(event).closest(
+      'input,textarea,select,[contenteditable]:not([contenteditable="false"])',
+    ) ||
+    $<HTMLDialogElement>('#modal').open
+  )
     return;
+  if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    if (!event.repeat) actions.compare();
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
     event.preventDefault();
     history(!event.shiftKey);
@@ -626,6 +690,7 @@ document.addEventListener('keydown', (event) => {
   }
 });
 render();
+syncBackend();
 installBandRail();
 installBandReordering($('#bands'), (from, to) => {
   commit(() => {

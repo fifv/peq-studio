@@ -37,7 +37,18 @@ export function appMarkup() {
           <div class="editor-actions">
             <div class="history">${ib('undo', 'undo', 'Undo')}${ib('redo', 'redo', 'Redo')}</div>
             <div class="segmented" id="channel-mode"></div>
-            ${renderToggle('PEQ', { id: 'power', className: 'power-label' })}
+            <button
+              id="compare"
+              data-action="compare"
+              aria-pressed="false"
+              aria-keyshortcuts="B"
+              title="Compare with filters bypassed, keeping the same preamp · Shortcut B"
+            >
+              A · EQ
+            </button>
+            <div title="Bypass all processing, including preamp">
+              ${renderToggle('Power', { id: 'power', className: 'power-label' })}
+            </div>
           </div>
         </div>
         <div class="curve-toolbar">
@@ -115,6 +126,13 @@ export function appMarkup() {
         </div>
         <div id="band-editor"></div>
         <footer class="editor-footer">
+          <button
+            id="backend-status"
+            data-action="backend-info"
+            title="Equalizer APO setup and sync status"
+          >
+            APO · Browser only
+          </button>
           <span
             >20 Hz — 20 kHz <span class="divider">/</span>
             <span id="sample-rate-label">48 kHz</span></span

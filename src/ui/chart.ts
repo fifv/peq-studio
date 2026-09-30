@@ -1,7 +1,7 @@
 import type { Workspace, Preset, Channel, Layers, Point, CurveReading, Filter } from '../types.ts';
 import { query as $ } from '../dom.ts';
 import { clamp, formatFrequency as fmt, signed } from '../utils.ts';
-import { FREQUENCIES, bandColor } from '../model.ts';
+import { FREQUENCIES, bandColor, playbackChannel } from '../model.ts';
 import { findCurve } from '../curve-library.ts';
 import { displayedCurves } from '../curve-export.ts';
 import { interpolate } from '../curve-math.ts';
@@ -70,7 +70,9 @@ export function createChart({
       selected = getSelected(),
       layers = getLayers();
     const c = current(),
-      enabled = preset().enabled;
+      enabled = preset().enabled,
+      filtersEnabled = enabled && preset().filtersEnabled,
+      playing = playbackChannel(c, preset());
     const targetItem = findCurve(state, 'target'),
       sourceItem = findCurve(state, 'source');
     const target = targetItem?.points ? { ...targetItem, points: targetItem.points } : null,
@@ -98,11 +100,9 @@ export function createChart({
         (hz, i) => `${i ? 'L' : 'M'}${xOf(hz).toFixed(2)},${yOf(fn(hz, i)).toFixed(2)}`,
       ).join(' ');
     const sampling = { samplingFrequencyHz: state.sampleRate };
-    const transfers = enabled
-      ? c.filters
-          .filter((f) => f.enabled)
-          .map((f) => getTransferFunction(f.type, f.fcHz, f.gainDb, f.q, sampling))
-      : [];
+    const transfers = playing.filters
+      .filter((f) => f.enabled)
+      .map((f) => getTransferFunction(f.type, f.fcHz, f.gainDb, f.q, sampling));
     const combined = FREQUENCIES.map((hz) =>
       enabled
         ? transfers.reduce(
@@ -145,7 +145,7 @@ export function createChart({
         >${fmt(hz)}</text
       >`;
     html += '<g clip-path="url(#plot-clip)">';
-    if (layers.bands && enabled)
+    if (layers.bands && filtersEnabled)
       c.filters.forEach((f, i) => {
         if (f.enabled) {
           const tf = getTransferFunction(f.type, f.fcHz, f.gainDb, f.q, {
@@ -216,7 +216,11 @@ export function createChart({
     });
     html += '</g>';
     if (!enabled)
-      html += '<text x="614" y="55" text-anchor="middle" class="bypass-label">PEQ BYPASSED</text>';
+      html +=
+        '<text x="614" y="55" text-anchor="middle" class="bypass-label">ALL PROCESSING BYPASSED</text>';
+    else if (!filtersEnabled)
+      html +=
+        '<text x="614" y="55" text-anchor="middle" class="bypass-label">B · FILTERS OFF · PREAMP KEPT</text>';
     hoverReadings = (hz) => {
       const total = enabled
         ? transfers.reduce(
@@ -237,7 +241,7 @@ export function createChart({
           db: filteredValue(hz, total, c.preampDb, enabled),
         });
       const f = c.filters[selected];
-      if (layers.bands && enabled && f?.enabled)
+      if (layers.bands && filtersEnabled && f?.enabled)
         readings.push({
           name: `Band ${selected + 1}`,
           color: bandColor(selected),
@@ -256,7 +260,7 @@ export function createChart({
     $('#peak-status').textContent =
       peak > 0.05
         ? `Peak ${signed(peak)} dB · consider Safe gain`
-        : `${enabled ? 'Peak' : 'Bypass'} ${signed(peak)} dB`;
+        : `${!enabled ? 'Bypass' : filtersEnabled ? 'Peak' : 'Preamp only'} ${signed(peak)} dB`;
     $('#peak-status').className = peak > 0.05 ? 'warning' : '';
   }
 
