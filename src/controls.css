@@ -729,6 +729,26 @@ dialog .config-label {
   font-size: 11px;
   color: #9aadc8;
 }
+.config-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 16px 0 8px;
+}
+dialog .config-heading .config-label {
+  margin: 0;
+}
+dialog .config-preamp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  color: #9aadc8;
+  cursor: pointer;
+}
 dialog .config-text {
   display: block;
   min-height: 150px;

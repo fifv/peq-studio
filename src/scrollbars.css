@@ -57,6 +57,8 @@ dialog textarea {
   overscroll-behavior: auto;
 }
 dialog {
+  /* Reserve equal space on both sides so the content stays centered. */
+  scrollbar-gutter: stable both-edges;
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
 }

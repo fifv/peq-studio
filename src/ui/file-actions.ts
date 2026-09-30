@@ -7,8 +7,10 @@ import { download, openModal, chooseFile as chooseFileWithErrors } from './dialo
 import type { ImportMode } from '../preset-edits.ts';
 import { exportFilteredCurve } from '../curve-export.ts';
 import { loadBuiltinCurve } from '../curve-library.ts';
+import { renderToggle } from './toggle.ts';
 
 const IMPORT_MODE_KEY = 'peq-studio.import-mode';
+const EXPORT_PREAMP_KEY = 'peq-studio.export-include-preamp';
 interface FileActionsOptions {
   getState: () => Workspace;
   getPreset: () => Preset;
@@ -30,6 +32,12 @@ export function createFileActions({
   undoToast,
 }: FileActionsOptions): Record<string, () => void | Promise<void>> {
   let preferredImportMode: ImportMode = 'new';
+  let exportIncludePreamp = true;
+  try {
+    exportIncludePreamp = localStorage.getItem(EXPORT_PREAMP_KEY) !== 'false';
+  } catch {
+    // Export stays usable when browser storage is unavailable.
+  }
   try {
     const saved = localStorage.getItem(IMPORT_MODE_KEY);
     if (saved === 'new' || saved === 'replace' || saved === 'append') preferredImportMode = saved;
@@ -56,7 +64,7 @@ export function createFileActions({
     );
   }
   return {
-    export: () =>
+    export: () => {
       openModal(
         'Export preset',
         /* HTML */ ` <p>
@@ -64,8 +72,11 @@ export function createFileActions({
             ${getPreset().linked ? 'both linked channels' : `the ${getChannelName()} channel`}. Copy
             it below or download a file.
           </p>
-          <label class="config-label" for="export-text">APO configuration</label
-          ><textarea
+          <div class="config-heading">
+            <label class="config-label" for="export-text">APO configuration</label>
+            ${renderToggle('Include preamp', { id: 'export-include-preamp', checked: exportIncludePreamp, className: 'config-preamp-toggle' })}
+          </div>
+          <textarea
             id="export-text"
             class="config-text"
             rows="10"
@@ -73,7 +84,7 @@ export function createFileActions({
             spellcheck="false"
             aria-label="APO configuration"
           >
-${esc(exportText(getChannelConfig()))}</textarea>
+${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
           <div class="config-copy-row">
             <span id="copy-status" role="status"></span
             ><button class="primary" data-action="copy-apo">
@@ -93,7 +104,21 @@ ${esc(exportText(getChannelConfig()))}</textarea>
               >
             </button>
           </div>`,
-      ),
+      );
+      $<HTMLInputElement>('#export-include-preamp').addEventListener('change', (event) => {
+        exportIncludePreamp = (event.target as HTMLInputElement).checked;
+        $<HTMLTextAreaElement>('#export-text').value = exportText(
+          getChannelConfig(),
+          exportIncludePreamp,
+        );
+        $('#copy-status').textContent = '';
+        try {
+          localStorage.setItem(EXPORT_PREAMP_KEY, String(exportIncludePreamp));
+        } catch {
+          // Retain the choice for this session if storage is blocked.
+        }
+      });
+    },
     'copy-apo': async () => {
       const field = $<HTMLTextAreaElement>('#export-text'),
         status = $('#copy-status');

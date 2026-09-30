@@ -27,6 +27,20 @@ const flat = (db: number): Pick<MeasuredCurve, 'points'> => ({
     [20000, db],
   ],
 });
+test('APO preview can omit preamp while default text and JSON exports retain original gains', () => {
+  const preset = newPreset('Export', { preampDb: -6, filters: [newBand(100, 3)] });
+  preset.linked = false;
+  preset.right.preampDb = -9;
+  const original = structuredClone(preset);
+  assert.match(exportText(preset.left), /^Preamp: -6\.0 dB/m);
+  assert.doesNotMatch(exportText(preset.left, false), /Preamp:/);
+  assert.match(exportText(preset.left, false), /Filter 1: ON PK/);
+  const withPreamp = importPreset(exportPreset(preset), 'With preamp');
+  assert.equal(withPreamp.left.preampDb, -6);
+  assert.equal(withPreamp.right.preampDb, -9);
+  assert.match(exportText(preset.left), /^Preamp: -6\.0 dB/m);
+  assert.deepEqual(preset, original);
+});
 test('gains beyond the old limits survive gestures, persistence and both export formats', () => {
   for (const gain of [-72, -24, 24, 72]) {
     const preset = newPreset('Extended gain', { preampDb: -80, filters: [newBand(1000, gain)] });

@@ -188,8 +188,14 @@ export function importPreset(text: string, name: string): Preset {
 export function exportPreset(preset: Preset) {
   return JSON.stringify({ format: 'peq-studio', version: 1, preset }, null, 2);
 }
-export function exportText(channel: Channel) {
-  return toRewText(channel);
+export function exportText(channel: Channel, includePreamp = true) {
+  const text = toRewText(channel);
+  return includePreamp
+    ? text
+    : text
+        .split('\n')
+        .filter((line) => !/^Preamp:/i.test(line))
+        .join('\n');
 }
 export function parseCurve(text: string, name: string): MeasuredCurve {
   const points = new Map<number, number>();
