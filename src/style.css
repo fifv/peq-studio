@@ -200,7 +200,6 @@ svg {
   border-color: transparent;
 }
 .workspace {
-  max-width: 1920px;
   margin: 28px auto;
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
@@ -350,16 +349,13 @@ svg {
 .title-wrap {
   min-width: 0;
 }
-.title-wrap .eyebrow {
-  font-size: 9px;
-}
 #preset-name {
   display: flex;
   max-width: 100%;
   font-size: 25px;
   font-weight: 600;
   letter-spacing: -0.7px;
-  margin-top: 7px;
+  margin-top: 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -528,7 +524,7 @@ input.toggle-input:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 30px 9px;
+  padding: 18px 30px 4px;
   gap: 10px;
 }
 #legend {
@@ -580,12 +576,12 @@ input.toggle-input:disabled {
 }
 .graph-area {
   position: relative;
-  padding: 4px 19px 0;
+  padding: 0 19px;
 }
 .chart-controls {
   position: absolute;
   right: 39px;
-  top: 21px;
+  top: 9px;
   display: flex;
   gap: 6px;
   z-index: 1;
@@ -1361,8 +1357,5 @@ dialog textarea {
   }
   .editor-footer > span {
     display: block;
-  }
-  .graph-area .axis {
-    font-size: 17px;
   }
 }

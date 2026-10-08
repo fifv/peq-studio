@@ -42,7 +42,7 @@ export function createChart({
   onAdd,
   onCommit,
 }: ChartOptions) {
-  const bounds = { l: 54, r: 1175, t: 24, b: 447 };
+  const bounds = { l: 54, r: 1175, t: 12, b: 447 };
   const xOf = (hz: number) =>
     bounds.l + frequencyPosition(getState().chartView, hz) * (bounds.r - bounds.l);
   let axisMin = -25,
@@ -71,11 +71,13 @@ export function createChart({
   }
   function draw() {
     const svg = $<SVGSVGElement>('#chart');
-    // Match the plot to its available space without stretching text or band handles.
-    const width = svg.clientWidth;
-    const height = width > 0 ? (svg.clientHeight / width) * 1200 : 490;
+    // Use CSS-pixel coordinates so labels, strokes, and handles keep their size
+    // when the graph gets wider or taller.
+    const width = svg.clientWidth || 1200;
+    const height = svg.clientHeight || 490;
+    bounds.r = Math.max(bounds.l + 40, width - 25);
     bounds.b = Math.max(bounds.t + 40, height - 43);
-    svg.setAttribute('viewBox', `0 0 1200 ${height}`);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     const state = getState(),
       selected = getSelected(),
       layers = getLayers();
@@ -145,7 +147,7 @@ export function createChart({
     for (const hz of grid)
       html += /* HTML */ `<line
         x1="${xOf(hz)}"
-        y1="24"
+        y1="${bounds.t}"
         x2="${xOf(hz)}"
         y2="${bounds.b}"
         class="grid ${major.includes(hz) ? 'major' : ''} ${decades.includes(hz) ? 'decade' : ''}"
@@ -153,8 +155,8 @@ export function createChart({
     const step = axisMax - axisMin <= 30 ? 5 : axisMax - axisMin > 100 ? 20 : 10;
     for (let db = Math.ceil(axisMin / step) * step; db <= axisMax; db += step)
       html += /* HTML */ `<line
-          x1="54"
-          x2="1175"
+          x1="${bounds.l}"
+          x2="${bounds.r}"
           y1="${yOf(db)}"
           y2="${yOf(db)}"
           class="${db === 0 ? 'zero-line' : 'grid major'}"

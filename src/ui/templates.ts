@@ -20,19 +20,14 @@ export function appMarkup() {
         </div>
         <nav id="presets" aria-label="Local presets"></nav>
         <div class="sidebar-bottom">
-          <span class="local-dot"></span>
-          <div>
-            <strong id="save-status" role="status">Saved locally</strong>
-            <p>No account. No cloud.</p>
-          </div>
+          <strong id="save-status" role="status">Saved locally</strong>
           ${ib('backup', 'download', 'Back up workspace')}
         </div>
       </aside>
       <section class="editor">
         <div class="editor-heading">
           <div class="title-wrap">
-            <span class="eyebrow">PARAMETRIC EQUALIZER</span
-            ><button id="preset-name" data-action="rename" title="Rename preset"></button>
+            <button id="preset-name" data-action="rename" title="Rename preset"></button>
           </div>
           <div class="editor-actions">
             <div class="history">${ib('undo', 'undo', 'Undo')}${ib('redo', 'redo', 'Redo')}</div>
