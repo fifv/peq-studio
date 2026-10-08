@@ -1,7 +1,7 @@
-import type { Workspace, Preset, Channel, Layers, Point, CurveReading, Filter } from '../types.ts';
+import type { Workspace, Channel, Layers, Point, CurveReading, Filter } from '../types.ts';
 import { query as $ } from '../dom.ts';
 import { clamp, formatFrequency as fmt, signed } from '../utils.ts';
-import { FREQUENCIES, bandColor, playbackChannel } from '../model.ts';
+import { FREQUENCIES, bandColor } from '../model.ts';
 import { findCurve } from '../curve-library.ts';
 import { displayedCurves } from '../curve-export.ts';
 import { interpolate } from '../curve-math.ts';
@@ -9,7 +9,6 @@ import { getTransferFunction, calculateFilterResponseDb } from '../response.ts';
 import { hoverMarkup } from '../chart-hover.ts';
 interface ChartOptions {
   getState: () => Workspace;
-  getPreset: () => Preset;
   getChannel: () => Channel;
   getSelected: () => number;
   getLayers: () => Layers;
@@ -22,7 +21,6 @@ interface ChartOptions {
 }
 export function createChart({
   getState,
-  getPreset: preset,
   getChannel: current,
   getSelected,
   getLayers,
@@ -69,10 +67,7 @@ export function createChart({
     const state = getState(),
       selected = getSelected(),
       layers = getLayers();
-    const c = current(),
-      enabled = preset().enabled,
-      filtersEnabled = enabled && preset().filtersEnabled,
-      playing = playbackChannel(c, preset());
+    const c = current();
     const targetItem = findCurve(state, 'target'),
       sourceItem = findCurve(state, 'source');
     const target = targetItem?.points ? { ...targetItem, points: targetItem.points } : null,
@@ -100,17 +95,16 @@ export function createChart({
         (hz, i) => `${i ? 'L' : 'M'}${xOf(hz).toFixed(2)},${yOf(fn(hz, i)).toFixed(2)}`,
       ).join(' ');
     const sampling = { samplingFrequencyHz: state.sampleRate };
-    const transfers = playing.filters
+    const transfers = c.filters
       .filter((f) => f.enabled)
       .map((f) => getTransferFunction(f.type, f.fcHz, f.gainDb, f.q, sampling));
-    const combined = FREQUENCIES.map((hz) =>
-      enabled
-        ? transfers.reduce(
-            (sum, tf) => sum + calculateFilterResponseDb(tf, hz, sampling),
-            c.preampDb,
-          )
-        : 0,
-    );
+    // Preview the configured EQ independently of the playback switches.
+    const combinedAt = (hz: number) =>
+      transfers.reduce(
+        (sum, tf) => sum + calculateFilterResponseDb(tf, hz, sampling),
+        c.preampDb,
+      );
+    const combined = FREQUENCIES.map(combinedAt);
     let html = `<defs><clipPath id="plot-clip"><rect x="${bounds.l}" y="${bounds.t}" width="${bounds.r - bounds.l}" height="${bounds.b - bounds.t}"/></clipPath></defs>`;
     const major = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
     const decades = [100, 1000, 10000];
@@ -145,7 +139,7 @@ export function createChart({
         >${fmt(hz)}</text
       >`;
     html += '<g clip-path="url(#plot-clip)">';
-    if (layers.bands && filtersEnabled)
+    if (layers.bands)
       c.filters.forEach((f, i) => {
         if (f.enabled) {
           const tf = getTransferFunction(f.type, f.fcHz, f.gainDb, f.q, {
@@ -183,7 +177,7 @@ export function createChart({
       html += /* HTML */ `<path
         class="response-path filtered-path"
         data-curve-layer="filtered"
-        d="${curve((hz, i) => filteredValue(hz, combined[i], c.preampDb, enabled))}"
+        d="${curve((hz, i) => filteredValue(hz, combined[i], c.preampDb, true))}"
       />`;
     c.filters.forEach((f, i) => {
       if (f.enabled)
@@ -215,19 +209,8 @@ export function createChart({
         >`;
     });
     html += '</g>';
-    if (!enabled)
-      html +=
-        '<text x="614" y="55" text-anchor="middle" class="bypass-label">ALL PROCESSING BYPASSED</text>';
-    else if (!filtersEnabled)
-      html +=
-        '<text x="614" y="55" text-anchor="middle" class="bypass-label">B · FILTERS OFF · PREAMP KEPT</text>';
     hoverReadings = (hz) => {
-      const total = enabled
-        ? transfers.reduce(
-            (sum, tf) => sum + calculateFilterResponseDb(tf, hz, sampling),
-            c.preampDb,
-          )
-        : 0;
+      const total = combinedAt(hz);
       const readings: CurveReading[] = [];
       if (layers.target && target)
         readings.push({ name: 'Target', color: '#548eff', db: targetValue(hz) - offset(hz) });
@@ -238,10 +221,10 @@ export function createChart({
         readings.push({
           name: 'Filtered',
           color: '#40c6b9',
-          db: filteredValue(hz, total, c.preampDb, enabled),
+          db: filteredValue(hz, total, c.preampDb, true),
         });
       const f = c.filters[selected];
-      if (layers.bands && filtersEnabled && f?.enabled)
+      if (layers.bands && f?.enabled)
         readings.push({
           name: `Band ${selected + 1}`,
           color: bandColor(selected),
@@ -260,7 +243,7 @@ export function createChart({
     $('#peak-status').textContent =
       peak > 0.05
         ? `Peak ${signed(peak)} dB · consider Safe gain`
-        : `${!enabled ? 'Bypass' : filtersEnabled ? 'Peak' : 'Preamp only'} ${signed(peak)} dB`;
+        : `Peak ${signed(peak)} dB`;
     $('#peak-status').className = peak > 0.05 ? 'warning' : '';
   }
 

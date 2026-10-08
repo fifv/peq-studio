@@ -344,7 +344,6 @@ function renderBandEditor() {
 
 const chart = createChart({
   getState: () => state,
-  getPreset: preset,
   getChannel: current,
   getSelected: () => selected,
   getLayers: () => layers,
