@@ -13,6 +13,121 @@ function deferred() {
   return { promise, resolve };
 }
 
+test('disabled sync makes no connections and resumes with the latest preset', async (t) => {
+  let connects = 0;
+  const sent: BackendConfiguration[] = [];
+  const statuses: SyncStatus[] = [];
+  const sync = createLiveSync(
+    {
+      id: 'test',
+      name: 'test',
+      async connect() {
+        connects++;
+      },
+      async disconnect() {},
+      async apply(c) {
+        sent.push(c);
+      },
+    },
+    (status) => statuses.push(status),
+    10,
+    false,
+  );
+  t.after(() => sync.stop());
+  const p = newPreset();
+  sync.update(p, 48000);
+  p.left.preampDb = -6;
+  sync.update(p, 48000);
+  await delay(40);
+  assert.equal(connects, 0);
+  assert.equal(sent.length, 0);
+  assert.equal(statuses.at(-1)?.kind, 'off');
+  sync.setEnabled(true);
+  await until(() => statuses.at(-1)?.kind === 'synced');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].left.preampDb, -6);
+});
+
+test('turning sync off cancels retries and suppresses stale connection results', async (t) => {
+  let connects = 0;
+  let online = false;
+  const connection = deferred();
+  const sent: BackendConfiguration[] = [];
+  const statuses: SyncStatus[] = [];
+  const sync = createLiveSync(
+    {
+      id: 'test',
+      name: 'test',
+      async connect() {
+        connects++;
+        if (!online) throw Error('offline');
+        await connection.promise;
+      },
+      async disconnect() {},
+      async apply(c) {
+        sent.push(c);
+      },
+    },
+    (status) => statuses.push(status),
+    20,
+  );
+  t.after(() => sync.stop());
+  const p = newPreset();
+  sync.update(p, 48000);
+  await until(() => statuses.at(-1)?.kind === 'error');
+  sync.setEnabled(false);
+  await delay(60);
+  assert.equal(connects, 1);
+  online = true;
+  sync.setEnabled(true);
+  await until(() => connects === 2);
+  sync.setEnabled(false);
+  connection.resolve();
+  await delay(40);
+  assert.equal(sent.length, 0);
+  assert.equal(statuses.at(-1)?.kind, 'off');
+  sync.setEnabled(true);
+  await until(() => statuses.at(-1)?.kind === 'synced');
+  assert.equal(sent.length, 1);
+});
+
+test('pausing during a write preserves off status and resumes without overlapping writes', async (t) => {
+  const first = deferred();
+  const sent: BackendConfiguration[] = [];
+  const statuses: SyncStatus[] = [];
+  let active = 0;
+  const sync = createLiveSync(
+    {
+      id: 'test',
+      name: 'test',
+      async connect() {},
+      async disconnect() {},
+      async apply(c) {
+        assert.equal(++active, 1);
+        sent.push(c);
+        if (sent.length === 1) await first.promise;
+        active--;
+      },
+    },
+    (status) => statuses.push(status),
+  );
+  t.after(() => sync.stop());
+  const p = newPreset();
+  sync.update(p, 48000);
+  await until(() => sent.length === 1);
+  sync.setEnabled(false);
+  p.left.preampDb = -8;
+  sync.update(p, 48000);
+  first.resolve();
+  await delay(50);
+  assert.equal(sent.length, 1);
+  assert.equal(statuses.at(-1)?.kind, 'off');
+  sync.setEnabled(true);
+  await until(() => statuses.at(-1)?.kind === 'synced');
+  assert.equal(sent.length, 2);
+  assert.equal(sent[1].left.preampDb, -8);
+});
+
 async function until(predicate: () => boolean) {
   for (let i = 0; i < 100; i++) {
     if (predicate()) return;

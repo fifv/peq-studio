@@ -38,6 +38,7 @@ import { getCurveDisplay } from './curve-level.ts';
 import { installChartResize } from './ui/chart-resize.ts';
 import { appMarkup, bandCards, bandEditor, presetList, channelButtons } from './ui/templates.ts';
 import { icon } from './ui/icons.ts';
+import { renderToggle } from './ui/toggle.ts';
 
 const KEY = 'peq-studio.workspace.v1';
 let state: Workspace,
@@ -122,19 +123,37 @@ function history(back: boolean) {
 $('#app').innerHTML = appMarkup();
 
 const apoBackend = createEqualizerApoBackend();
+const LIVE_SYNC_KEY = 'peq-studio.live-sync.enabled';
+let liveSyncEnabled = true;
+try {
+  liveSyncEnabled = localStorage.getItem(LIVE_SYNC_KEY) !== 'false';
+} catch {
+  /* Keep the current session usable when storage is unavailable. */
+}
 let backendMessage = 'Run the Go console backend locally to write peqstudio.txt.';
-const liveSync = createLiveSync(apoBackend, (status) => {
-  backendMessage = status.message;
-  const element = $('#backend-status');
-  element.textContent =
-    status.kind === 'synced'
-      ? 'APO · Synced'
-      : status.kind === 'syncing'
-        ? 'APO · Syncing…'
-        : 'APO · Not synced';
-  element.dataset.status = status.kind;
-  element.title = `${status.message} Click for setup details.`;
-});
+const liveSync = createLiveSync(
+  apoBackend,
+  (status) => {
+    backendMessage = status.message;
+    const element = $('#backend-status');
+    element.textContent =
+      status.kind === 'synced'
+        ? 'APO · Synced'
+        : status.kind === 'syncing'
+          ? 'APO · Syncing…'
+          : status.kind === 'off'
+            ? 'APO · Off'
+            : 'APO · Not synced';
+    element.dataset.status = status.kind;
+    element.title = `${status.message} Click for setup details.`;
+    const detail = document.querySelector('#live-sync-status');
+    if (detail) detail.textContent = status.message;
+    const path = document.querySelector('#live-sync-path');
+    if (path) path.textContent = apoBackend.configPath || 'peqstudio.txt';
+  },
+  2000,
+  liveSyncEnabled,
+);
 function syncBackend() {
   liveSync.update(preset(), state.sampleRate);
 }
@@ -431,19 +450,39 @@ const actions: Record<string, () => void | Promise<void>> = {
   'backend-info': () => {
     openModal(
       'Equalizer APO live sync',
-      `<p>${esc(backendMessage)}</p>
-       <p>Start the console backend with <code>npm run backend</code>. Both this editor and the
-       GitHub Pages editor connect to <code>127.0.0.1:8765</code>.
-       Allow local network access for this site if your browser asks.
-       Changes to the active preset are written automatically, including while dragging.</p>
-       ${apoBackend.configPath ? `<p>Managed file: <code>${esc(apoBackend.configPath)}</code></p>` : ''}
-       <p>In Equalizer APO Configuration Editor, add an Include configuration pointing to
-       <code>peqstudio.txt</code>, or add <code>Include: peqstudio.txt</code> to your configuration.
-       You control when to include it. PEQ Studio never edits <code>config.txt</code>.</p>
-       <p>“Synced” confirms the file was saved. Audio changes only after you include it in
-       an active Equalizer APO configuration. Closing the console keeps the last settings.</p>
+      `<div class="live-sync-panel">
+       <div class="live-sync-control">
+         ${renderToggle('Live sync', { id: 'live-sync-enabled', checked: liveSyncEnabled })}
+         <p>Automatically send active preset changes to Equalizer APO.</p>
+         <p id="live-sync-status" role="status">${esc(backendMessage)}</p>
+       </div>
+       <ol class="live-sync-steps">
+         <li><strong>Start the local backend</strong>
+           <code class="live-sync-command">npm run backend</code>
+           <p>Keep its console open. Allow local network access if your browser asks.</p>
+         </li>
+         <li><strong>Include the preset file in Equalizer APO</strong>
+           <p>In Configuration Editor, add an Include entry for this file:</p>
+           <code id="live-sync-path" class="live-sync-command">${esc(apoBackend.configPath || 'peqstudio.txt')}</code>
+           <p>Or add <code>Include: peqstudio.txt</code> to your configuration.</p>
+         </li>
+       </ol>
+       <p class="live-sync-note">“Synced” means the file was saved. It affects audio only when included in your active APO configuration. Turning sync off or closing the console keeps the last applied settings.</p>
+       <details class="live-sync-details"><summary>Connection details</summary>
+         <p>Both the local and GitHub Pages editors connect to <code>127.0.0.1:8765</code>. PEQ Studio writes <code>peqstudio.txt</code> and never edits <code>config.txt</code>.</p>
+       </details>
+       </div>
        <div class="modal-actions"><button data-action="close-modal">Close</button></div>`,
     );
+    $<HTMLInputElement>('#live-sync-enabled').addEventListener('change', (event) => {
+      liveSyncEnabled = (event.target as HTMLInputElement).checked;
+      try {
+        localStorage.setItem(LIVE_SYNC_KEY, String(liveSyncEnabled));
+      } catch {
+        toast('Live sync changed for this session, but the preference could not be saved.');
+      }
+      liveSync.setEnabled(liveSyncEnabled);
+    });
   },
   ...createFileActions({
     getState: () => state,
