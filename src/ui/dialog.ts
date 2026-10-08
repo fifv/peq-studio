@@ -1,6 +1,10 @@
 import { query as $ } from '../dom.ts';
 import { errorMessage } from '../utils.ts';
 import { iconButton as ib } from './icons.ts';
+import { positionPopup } from './popover.ts';
+
+let cleanupPopup: (() => void) | undefined;
+let popupAnchor: HTMLElement | null = null;
 export function download(name: string, text: string, type = 'text/plain') {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a');
@@ -12,38 +16,75 @@ export function download(name: string, text: string, type = 'text/plain') {
 export function openModal(
   title: string,
   content: string,
-  { dismissOnOutside = true }: { dismissOnOutside?: boolean | (() => boolean) } = {},
+  {
+    dismissOnOutside = true,
+    anchor,
+    width = 440,
+  }: {
+    dismissOnOutside?: boolean | (() => boolean);
+    anchor?: string;
+    width?: number;
+  } = {},
 ) {
+  cleanupPopup?.();
+  const dialog = $<HTMLDialogElement>('#modal');
+  popupAnchor?.setAttribute('aria-expanded', 'false');
+  popupAnchor = anchor ? $(anchor) : popupAnchor;
+  const trigger = popupAnchor;
   $('#modal-content').innerHTML = /* HTML */ `<div class="modal-heading">
-      <h2>${title}</h2>
-      ${ib('close-modal', 'close', 'Close dialog')}
+      <h2 id="action-popup-title">${title}</h2>
+      ${ib('close-modal', 'close', 'Close popup')}
     </div>
     ${content}`;
-  const dialog = $<HTMLDialogElement>('#modal');
-  let pressedOutside = false;
-  const isOutside = (event: MouseEvent) => {
-    if (event.target !== dialog) return false;
-    const rect = dialog.getBoundingClientRect();
-    return (
-      event.clientX < rect.left ||
-      event.clientX > rect.right ||
-      event.clientY < rect.top ||
-      event.clientY > rect.bottom
-    );
+  dialog.setAttribute('aria-labelledby', 'action-popup-title');
+  dialog.setAttribute('aria-modal', 'false');
+  const position = () => {
+    if (dialog.open && trigger) positionPopup(dialog, trigger, { width, flip: true });
   };
-  dialog.onpointerdown = (event) => {
-    pressedOutside = event.button === 0 && isOutside(event);
-  };
-  dialog.onpointercancel = () => {
-    pressedOutside = false;
-  };
-  dialog.onclick = (event) => {
-    const dismiss = pressedOutside && event.button === 0 && isOutside(event);
-    pressedOutside = false;
-    if (dismiss && (typeof dismissOnOutside === 'function' ? dismissOnOutside() : dismissOnOutside))
+  const events = new AbortController();
+  const options = { signal: events.signal };
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (
+        dialog.open &&
+        event.button === 0 &&
+        !dialog.contains(event.target as Node) &&
+        !trigger?.contains(event.target as Node) &&
+        (typeof dismissOnOutside === 'function' ? dismissOnOutside() : dismissOnOutside)
+      )
+        dialog.close();
+    },
+    options,
+  );
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Escape' || !dialog.open) return;
+      event.preventDefault();
       dialog.close();
+      trigger?.focus({ preventScroll: true });
+    },
+    options,
+  );
+  window.addEventListener('resize', position, options);
+  window.addEventListener('scroll', position, { ...options, capture: true });
+  const observer = new ResizeObserver(position);
+  observer.observe(dialog);
+  cleanupPopup = () => {
+    events.abort();
+    observer.disconnect();
   };
-  dialog.showModal();
+  dialog.onclose = () => {
+    if (dialog.open) return;
+    cleanupPopup?.();
+    trigger?.setAttribute('aria-expanded', 'false');
+  };
+  trigger?.setAttribute('aria-haspopup', 'dialog');
+  trigger?.setAttribute('aria-controls', 'modal');
+  trigger?.setAttribute('aria-expanded', 'true');
+  if (!dialog.open) dialog.show();
+  position();
 }
 export function chooseFile(
   accept: string,

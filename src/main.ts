@@ -473,6 +473,7 @@ const actions: Record<string, () => void | Promise<void>> = {
        </details>
        </div>
        <div class="modal-actions"><button data-action="close-modal">Close</button></div>`,
+      { anchor: '#backend-status', width: 460 },
     );
     $<HTMLInputElement>('#live-sync-enabled').addEventListener('change', (event) => {
       liveSyncEnabled = (event.target as HTMLInputElement).checked;
@@ -530,6 +531,7 @@ const actions: Record<string, () => void | Promise<void>> = {
           <button data-action="close-modal">Cancel</button
           ><button class="primary" data-action="confirm-link">Use ${channel} for both</button>
         </div>`,
+      { anchor: '[data-action="link"]', width: 360 },
     );
   },
   'confirm-link': () => {
@@ -608,7 +610,23 @@ document.addEventListener('click', (event) => {
   const copyPreset = eventElement(event).closest<HTMLElement>('[data-copy-preset]');
   if (copyPreset) return duplicatePreset(copyPreset.dataset.copyPreset!);
   const action = eventElement(event).closest<HTMLElement>('[data-action]');
-  if (action) return actions[action.dataset.action!]?.();
+  if (action) {
+    const name = action.dataset.action!;
+    const panel = $<HTMLDialogElement>('#modal');
+    if (
+      panel.open &&
+      action.getAttribute('aria-controls') === 'modal' &&
+      action.getAttribute('aria-expanded') === 'true'
+    ) {
+      panel.close();
+      return;
+    }
+    if (['export', 'import', 'backup', 'backend-info', 'link'].includes(name)) {
+      settingsPopup.close();
+      autoEqPopup.close();
+    } else if (['settings', 'autoeq'].includes(name) && panel.open) panel.close();
+    return actions[name]?.();
+  }
   const row = eventElement(event).closest<HTMLElement>('[data-id]');
   if (row) {
     selectPreset(row.dataset.id!);

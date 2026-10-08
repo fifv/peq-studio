@@ -1048,17 +1048,18 @@ input.toggle-input:disabled {
   transform: translate(-50%, 0);
 }
 dialog {
+  position: fixed;
+  z-index: 55;
+  margin: 0;
   color: #dce5f5;
-  background: #131d2c;
-  border: 1px solid #34445e;
-  border-radius: 16px;
-  padding: 25px;
+  background: #152031;
+  border: 1px solid #354962;
+  border-radius: 11px;
+  padding: 16px;
   max-width: 520px;
   width: calc(100% - 32px);
-  box-shadow: 0 24px 80px #0008;
-}
-dialog::backdrop {
-  background: #030912b5;
+  overflow: auto;
+  box-shadow: 0 12px 36px #0005;
 }
 .modal-heading {
   display: flex;
@@ -1067,9 +1068,43 @@ dialog::backdrop {
   margin-bottom: 16px;
 }
 .modal-heading h2 {
-  font-size: 20px;
+  font-size: 15px;
   margin: 0;
   font-weight: 550;
+}
+.session-action-group {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #2d4058;
+  border-radius: 8px;
+  background: #101b2a;
+}
+.session-action-group h3 {
+  font-size: 13px;
+  margin: 0;
+}
+.session-action-group p {
+  margin: 6px 0 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.session-action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.session-action-buttons button {
+  flex-direction: column;
+  padding: 11px 6px;
+  font-size: 11px;
+}
+.session-action-buttons svg {
+  width: 18px;
+  height: 18px;
+}
+#backup-status:empty,
+#backup-error:empty {
+  display: none;
 }
 .modal-heading button {
   border: 0;

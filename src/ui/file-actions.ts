@@ -102,7 +102,10 @@ export function createFileActions({
             ? ''
             : '<div class="modal-actions"><button class="primary" data-action="backup-paste">Restore workspace</button></div>'
         }`,
-      { dismissOnOutside: () => copying || !$<HTMLTextAreaElement>('#backup-text').value.trim() },
+      {
+        anchor: '[data-action="backup"]',
+        dismissOnOutside: () => copying || !$<HTMLTextAreaElement>('#backup-text').value.trim(),
+      },
     );
     const field = $<HTMLTextAreaElement>('#backup-text');
     field.value = text;
@@ -150,6 +153,7 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
               >
             </button>
           </div>`,
+        { anchor: '[data-action="export"]' },
       );
       $<HTMLInputElement>('#export-include-preamp').addEventListener('change', (event) => {
         exportIncludePreamp = (event.target as HTMLInputElement).checked;
@@ -250,7 +254,10 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
           <div class="or-divider">or import a file</div>
           <button data-action="import-file" class="wide">${icon('upload')} Choose a file</button>
           <p class="small-text">TOPPING / REW / Equalizer APO TXT, filter CSV, or PEQ JSON.</p>`,
-        { dismissOnOutside: () => !$<HTMLTextAreaElement>('#import-text').value.trim() },
+        {
+          anchor: '[data-action="import"]',
+          dismissOnOutside: () => !$<HTMLTextAreaElement>('#import-text').value.trim(),
+        },
       );
       $<HTMLInputElement>(`input[name="import-mode"][value="${preferredImportMode}"]`).checked =
         true;
@@ -276,26 +283,29 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
     },
     backup: () =>
       openModal(
-        'Workspace backup',
-        /* HTML */ `<p>Back up all presets, both channels, and imported response curves.</p>
-          <div class="export-options">
-            <button data-action="backup-copy">
-              ${icon('copy')} Copy backup to clipboard<small>All workspace data · JSON</small>
-            </button>
-            <button data-action="backup-clipboard">
-              ${icon('upload')} Restore from clipboard
-              <small>Replaces this workspace · undo available</small>
-            </button>
-            <button data-action="backup-save">
-              ${icon('download')} Download backup<small>All workspace data · JSON</small>
-            </button>
-            <button data-action="backup-restore">
-              ${icon('upload')} Restore backup file
-              <small>Replaces this workspace · undo available</small>
-            </button>
-          </div>
+        'Session backup',
+        /* HTML */ `<p class="session-intro">
+            All presets, both channels, and imported curves in one backup.
+          </p>
+          <section class="session-action-group" aria-labelledby="session-save-title">
+            <h3 id="session-save-title">Save this session</h3>
+            <p>Keep a copy of your current workspace.</p>
+            <div class="session-action-buttons">
+              <button data-action="backup-save">${icon('download')} Download file</button>
+              <button data-action="backup-copy">${icon('copy')} Copy to clipboard</button>
+            </div>
+          </section>
+          <section class="session-action-group" aria-labelledby="session-restore-title">
+            <h3 id="session-restore-title">Restore a session</h3>
+            <p>Replace this workspace with a saved backup. You can undo this.</p>
+            <div class="session-action-buttons">
+              <button data-action="backup-restore">${icon('upload')} Open backup file</button>
+              <button data-action="backup-clipboard">${icon('clipboard')} Read clipboard</button>
+            </div>
+          </section>
           <p id="backup-status" role="status" class="small-text"></p>
           <p id="backup-error" role="alert" class="form-error"></p>`,
+        { anchor: '[data-action="backup"]', width: 390 },
       ),
     'backup-copy': async () => {
       const text = backupText();

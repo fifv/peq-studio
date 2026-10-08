@@ -4,52 +4,14 @@ import { initialState } from '../src/model.ts';
 import { WorkspaceHistory } from '../src/history.ts';
 import { activePreset } from '../src/utils.ts';
 import { createFileActions } from '../src/ui/file-actions.ts';
+import { popupTestDom } from './popup-test-dom.ts';
 
 function setup(
   t: TestContext,
   clipboard: { readText(): Promise<string>; writeText(text: string): Promise<void> },
 ) {
-  const nodes = new Map<
-    string,
-    {
-      textContent: string;
-      innerHTML: string;
-      value: string;
-      focused: boolean;
-      selected: boolean;
-      closed: boolean;
-      focus(): void;
-      select(): void;
-      close(): void;
-      showModal(): void;
-    }
-  >();
-  function node(selector: string) {
-    if (!nodes.has(selector))
-      nodes.set(selector, {
-        textContent: '',
-        innerHTML: '',
-        value: '',
-        focused: false,
-        selected: false,
-        closed: false,
-        focus() {
-          this.focused = true;
-        },
-        select() {
-          this.selected = true;
-        },
-        close() {
-          this.closed = true;
-        },
-        showModal() {
-          this.closed = false;
-        },
-      });
-    return nodes.get(selector)!;
-  }
+  const { node } = popupTestDom(t);
   for (const [key, value] of Object.entries({
-    document: { querySelector: node },
     navigator: { clipboard },
     localStorage: { getItem: () => null },
   })) {
