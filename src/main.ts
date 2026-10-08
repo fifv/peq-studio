@@ -37,6 +37,7 @@ import { createChart } from './ui/chart.ts';
 import { getCurveDisplay } from './curve-level.ts';
 import { installChartResize } from './ui/chart-resize.ts';
 import { appMarkup, bandCards, bandEditor, presetList, channelButtons } from './ui/templates.ts';
+import { icon } from './ui/icons.ts';
 
 const KEY = 'peq-studio.workspace.v1';
 let state: Workspace,
@@ -309,7 +310,9 @@ function render() {
     c = current();
   if (selected >= c.filters.length) selected = -1;
   renderPresets();
-  $('#preset-name').innerHTML = /* HTML */ `${esc(p.name)}<span class="rename-icon">↗</span>`;
+  $('#preset-name').innerHTML = /* HTML */ `${esc(p.name)}<span class="rename-icon"
+      >${icon('edit')}</span
+    >`;
   updateHistoryButtons();
   $('#channel-mode').innerHTML = channelButtons(p, channel);
   $<HTMLInputElement>('#power').checked = p.enabled;

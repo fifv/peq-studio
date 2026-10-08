@@ -102,21 +102,38 @@
 #rename-input[hidden] {
   display: none;
 }
+/* Preserve the title's dimensions while the rename field overlays it. */
+.title-wrap:has(#rename-input:not([hidden])) #preset-name[hidden] {
+  display: flex;
+  visibility: hidden;
+}
 #rename-input {
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  transform: translateY(-50%);
   display: block;
-  width: 100%;
-  min-width: 160px;
+  width: calc(100% + 22px);
+  min-width: 0;
   font-size: 25px;
   font-weight: 600;
   letter-spacing: -0.7px;
   margin-top: 0;
-  padding: 0 2px;
-  border: 0;
-  border-bottom: 1px solid #6097f2;
-  border-radius: 0;
-  background: transparent;
+  padding: 5px 10px;
+  border: 1px solid #34465f;
+  border-radius: 8px;
+  background: #0d1726;
   color: #dce5f5;
   line-height: 1.4;
+}
+#rename-input:focus {
+  outline: none;
+  border-color: #6385b4;
+  box-shadow: 0 2px 8px #0002;
+}
+#rename-input::selection {
+  background: #36547b;
+  color: #f1f6ff;
 }
 .preset-row {
   position: relative;

@@ -63,6 +63,51 @@ export function createFileActions({
           : 'Bands appended.',
     );
   }
+  const backupText = () => JSON.stringify(getState(), null, 2);
+  function restoreBackup(text: string) {
+    const restored = validateState(JSON.parse(text));
+    onRestore(restored);
+    $<HTMLDialogElement>('#modal').close();
+    undoToast('Workspace restored.');
+  }
+  function restorePastedBackup(text: string) {
+    try {
+      restoreBackup(text);
+    } catch (error) {
+      $('#backup-error').textContent = errorMessage(error);
+    }
+  }
+  function showBackupText(mode: 'copy' | 'paste', text = '') {
+    const copying = mode === 'copy';
+    openModal(
+      copying ? 'Copy workspace backup' : 'Paste workspace backup',
+      /* HTML */ `<p>
+          ${
+            copying
+              ? 'Clipboard access is unavailable. Copy the selected backup text.'
+              : 'Paste your backup below to replace this workspace. You can undo the restore.'
+          }
+        </p>
+        <label class="config-label" for="backup-text">Workspace JSON</label>
+        <textarea
+          id="backup-text"
+          class="config-text"
+          rows="10"
+          spellcheck="false"
+          ${copying ? 'readonly' : ''}
+        ></textarea>
+        <p class="form-error" id="backup-error" role="alert"></p>
+        ${
+          copying
+            ? ''
+            : '<div class="modal-actions"><button class="primary" data-action="backup-paste">Restore workspace</button></div>'
+        }`,
+    );
+    const field = $<HTMLTextAreaElement>('#backup-text');
+    field.value = text;
+    field.focus();
+    if (copying) field.select();
+  }
   return {
     export: () => {
       openModal(
@@ -230,19 +275,53 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
     backup: () =>
       openModal(
         'Workspace backup',
-        '<p>Back up all presets, both channels, and imported response curves.</p><div class="export-options"><button data-action="backup-save">Download backup<small>All workspace data · JSON</small></button><button data-action="backup-restore">Restore backup<small>Replaces this workspace · undo available</small></button></div>',
+        /* HTML */ `<p>Back up all presets, both channels, and imported response curves.</p>
+          <div class="export-options">
+            <button data-action="backup-copy">
+              ${icon('copy')} Copy backup to clipboard<small>All workspace data · JSON</small>
+            </button>
+            <button data-action="backup-clipboard">
+              ${icon('upload')} Restore from clipboard
+              <small>Replaces this workspace · undo available</small>
+            </button>
+            <button data-action="backup-save">
+              ${icon('download')} Download backup<small>All workspace data · JSON</small>
+            </button>
+            <button data-action="backup-restore">
+              ${icon('upload')} Restore backup file
+              <small>Replaces this workspace · undo available</small>
+            </button>
+          </div>
+          <p id="backup-status" role="status" class="small-text"></p>
+          <p id="backup-error" role="alert" class="form-error"></p>`,
       ),
+    'backup-copy': async () => {
+      const text = backupText();
+      try {
+        await navigator.clipboard.writeText(text);
+        $('#backup-status').textContent = 'Backup copied to clipboard.';
+        $('#backup-error').textContent = '';
+      } catch {
+        showBackupText('copy', text);
+      }
+    },
+    'backup-clipboard': async () => {
+      let text: string;
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        showBackupText('paste');
+        return;
+      }
+      $('#backup-status').textContent = '';
+      restorePastedBackup(text);
+    },
+    'backup-paste': () => restorePastedBackup($<HTMLTextAreaElement>('#backup-text').value),
     'backup-save': () => {
-      download('peq-workspace.json', JSON.stringify(getState(), null, 2), 'application/json');
+      download('peq-workspace.json', backupText(), 'application/json');
       $<HTMLDialogElement>('#modal').close();
     },
-    'backup-restore': () =>
-      chooseFile('.json', (text) => {
-        const restored = validateState(JSON.parse(text));
-        onRestore(restored);
-        $<HTMLDialogElement>('#modal').close();
-        undoToast('Workspace restored.');
-      }),
+    'backup-restore': () => chooseFile('.json', restoreBackup),
     'close-modal': () => $<HTMLDialogElement>('#modal').close(),
   };
 }

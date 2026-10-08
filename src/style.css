@@ -348,6 +348,7 @@ svg {
 }
 .title-wrap {
   min-width: 0;
+  position: relative;
 }
 #preset-name {
   display: flex;
@@ -364,12 +365,18 @@ svg {
   justify-content: start;
 }
 .rename-icon {
-  font-size: 16px;
+  display: inline-flex;
+  flex-shrink: 0;
   color: #5b6d87;
   margin-left: 8px;
   opacity: 0;
 }
-#preset-name:hover .rename-icon {
+.rename-icon svg {
+  width: 16px;
+  height: 16px;
+}
+#preset-name:hover .rename-icon,
+#preset-name:focus-visible .rename-icon {
   opacity: 1;
 }
 .editor-actions {
