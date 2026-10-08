@@ -20,6 +20,9 @@
 }
 body {
   margin: 0;
+}
+body,
+dialog {
   -webkit-user-select: none;
   user-select: none;
 }
@@ -1056,7 +1059,6 @@ dialog {
 }
 dialog::backdrop {
   background: #030912b5;
-  backdrop-filter: blur(5px);
 }
 .modal-heading {
   display: flex;

@@ -14,3 +14,17 @@ Use the appropriate scope, such as per preset or global application preferences,
 and preserve existing saved choices when changing defaults.
 If the intended persistence behavior or scope is unclear, ask the user rather
 than guessing or leaving the option temporary.
+
+## Text selection
+
+UI text should be unselectable, including dialog titles, labels, descriptions,
+buttons, and other interface text. Keep editable fields and intentionally
+copyable content (such as configuration text, commands, and file paths) selectable.
+
+## Deployment
+
+When the user says "deploy", complete the full workflow: run relevant checks and
+the production build, commit the pending project changes, push to the GitHub
+remote, publish the build to GitHub Pages, and verify that deployment succeeds
+and the live site serves the new build. The request authorizes these steps;
+do not ask for separate confirmation for commit, push, or publication.

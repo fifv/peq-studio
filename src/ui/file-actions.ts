@@ -102,6 +102,7 @@ export function createFileActions({
             ? ''
             : '<div class="modal-actions"><button class="primary" data-action="backup-paste">Restore workspace</button></div>'
         }`,
+      { dismissOnOutside: () => copying || !$<HTMLTextAreaElement>('#backup-text').value.trim() },
     );
     const field = $<HTMLTextAreaElement>('#backup-text');
     field.value = text;
@@ -249,6 +250,7 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
           <div class="or-divider">or import a file</div>
           <button data-action="import-file" class="wide">${icon('upload')} Choose a file</button>
           <p class="small-text">TOPPING / REW / Equalizer APO TXT, filter CSV, or PEQ JSON.</p>`,
+        { dismissOnOutside: () => !$<HTMLTextAreaElement>('#import-text').value.trim() },
       );
       $<HTMLInputElement>(`input[name="import-mode"][value="${preferredImportMode}"]`).checked =
         true;

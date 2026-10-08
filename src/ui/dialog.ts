@@ -9,13 +9,41 @@ export function download(name: string, text: string, type = 'text/plain') {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function openModal(title: string, content: string) {
+export function openModal(
+  title: string,
+  content: string,
+  { dismissOnOutside = true }: { dismissOnOutside?: boolean | (() => boolean) } = {},
+) {
   $('#modal-content').innerHTML = /* HTML */ `<div class="modal-heading">
       <h2>${title}</h2>
       ${ib('close-modal', 'close', 'Close dialog')}
     </div>
     ${content}`;
-  $<HTMLDialogElement>('#modal').showModal();
+  const dialog = $<HTMLDialogElement>('#modal');
+  let pressedOutside = false;
+  const isOutside = (event: MouseEvent) => {
+    if (event.target !== dialog) return false;
+    const rect = dialog.getBoundingClientRect();
+    return (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    );
+  };
+  dialog.onpointerdown = (event) => {
+    pressedOutside = event.button === 0 && isOutside(event);
+  };
+  dialog.onpointercancel = () => {
+    pressedOutside = false;
+  };
+  dialog.onclick = (event) => {
+    const dismiss = pressedOutside && event.button === 0 && isOutside(event);
+    pressedOutside = false;
+    if (dismiss && (typeof dismissOnOutside === 'function' ? dismissOnOutside() : dismissOnOutside))
+      dialog.close();
+  };
+  dialog.showModal();
 }
 export function chooseFile(
   accept: string,
