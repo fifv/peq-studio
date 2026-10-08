@@ -93,7 +93,8 @@
     height: auto;
   }
 
-  .editor:has(.band-panel.expanded) {
+  /* Expanded bands keep the automatic height only when no custom height is set. */
+  .editor:where(:has(.band-panel.expanded)) {
     grid-template-rows: auto auto auto var(--expanded-graph-height) auto auto auto;
   }
 }
@@ -134,4 +135,88 @@
     /* Reset the desktop SVG proportions when switching to the stacked layout. */
     aspect-ratio: 1200 / 490;
   }
+}
+
+/* A chosen height takes precedence over automatic and expanded-band layouts. */
+.workspace:has(.custom-chart-height) {
+  height: auto;
+}
+.editor.custom-chart-height {
+  grid-template-rows: auto auto auto var(--chart-height) auto auto auto;
+}
+.custom-chart-height .graph-area {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: var(--chart-height);
+}
+.custom-chart-height .graph-area > svg {
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+.graph-area {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding-bottom: 0;
+}
+.chart-controls {
+  gap: 14px;
+}
+.chart-control-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.chart-control-group > span {
+  font-size: 10px;
+  color: #879ab6;
+}
+.chart-controls .chart-reset {
+  border-radius: 8px;
+  width: auto;
+  padding: 0 8px;
+  font-size: 10px;
+}
+.graph-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.graph-footer > #graph-hint {
+  max-width: none;
+}
+#peak-status {
+  text-align: right;
+}
+#chart-resize {
+  position: relative;
+  height: 18px;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+#chart-resize:focus-visible {
+  outline: none;
+}
+#chart-resize::after {
+  content: '';
+  position: absolute;
+  width: 42px;
+  height: 3px;
+  border-radius: 2px;
+  background: #344760;
+  top: calc(50% - 1.5px);
+  left: calc(50% - 21px);
+}
+#chart-resize:hover::after,
+#chart-resize:focus-visible::after,
+#chart-resize.dragging::after {
+  background: #619cfb;
+}
+#chart.zoomed {
+  cursor: grab;
+}
+#chart.panning {
+  cursor: grabbing;
 }

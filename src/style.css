@@ -20,6 +20,17 @@
 }
 body {
   margin: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Keep editable values and copyable configuration text selectable. */
+input,
+textarea,
+[contenteditable]:not([contenteditable='false']),
+pre,
+code {
+  -webkit-user-select: text;
+  user-select: text;
 }
 button,
 input,

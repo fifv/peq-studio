@@ -7,11 +7,21 @@ import { displayedCurves } from '../curve-export.ts';
 import { interpolate } from '../curve-math.ts';
 import { getTransferFunction, calculateFilterResponseDb } from '../response.ts';
 import { hoverMarkup } from '../chart-hover.ts';
+import { getCurveDisplay } from '../curve-level.ts';
+import {
+  defaultChartView,
+  frequencyAt,
+  frequencyPosition,
+  panFrequency,
+  zoomFrequency,
+  type FrequencyWindow,
+} from '../chart-view.ts';
 interface ChartOptions {
   getState: () => Workspace;
   getChannel: () => Channel;
   getSelected: () => number;
   getLayers: () => Layers;
+  onViewChange: (window: FrequencyWindow) => void;
   onSelect: (index: number) => void;
   onBegin: () => void;
   onChange: () => void;
@@ -24,6 +34,7 @@ export function createChart({
   getChannel: current,
   getSelected,
   getLayers,
+  onViewChange,
   onSelect,
   onBegin,
   onChange,
@@ -32,7 +43,8 @@ export function createChart({
   onCommit,
 }: ChartOptions) {
   const bounds = { l: 54, r: 1175, t: 24, b: 447 };
-  const xOf = (hz: number) => bounds.l + (Math.log10(hz / 20) / 3) * (bounds.r - bounds.l);
+  const xOf = (hz: number) =>
+    bounds.l + frequencyPosition(getState().chartView, hz) * (bounds.r - bounds.l);
   let axisMin = -25,
     axisMax = 25;
   const yOf = (db: number) =>
@@ -72,7 +84,7 @@ export function createChart({
       sourceItem = findCurve(state, 'source');
     const target = targetItem?.points ? { ...targetItem, points: targetItem.points } : null,
       source = sourceItem?.points ? { ...sourceItem, points: sourceItem.points } : null;
-    const display = state.curveDisplay,
+    const display = getCurveDisplay(state),
       compensated = display.compensated,
       range = display.rangeDb;
     const { targetShift, sourceShift, targetValue, sourceValue, offset, filteredValue } =
@@ -90,28 +102,47 @@ export function createChart({
           axisMin = Math.min(axisMin, center - range);
           axisMax = Math.max(axisMax, center + range);
         }
+    const frequencies = Array.from({ length: 512 }, (_, i) =>
+      frequencyAt(state.chartView, i / 511),
+    );
     const curve = (fn: (hz: number, index: number) => number) =>
-      FREQUENCIES.map(
-        (hz, i) => `${i ? 'L' : 'M'}${xOf(hz).toFixed(2)},${yOf(fn(hz, i)).toFixed(2)}`,
-      ).join(' ');
+      frequencies
+        .map((hz, i) => `${i ? 'L' : 'M'}${xOf(hz).toFixed(2)},${yOf(fn(hz, i)).toFixed(2)}`)
+        .join(' ');
     const sampling = { samplingFrequencyHz: state.sampleRate };
     const transfers = c.filters
       .filter((f) => f.enabled)
       .map((f) => getTransferFunction(f.type, f.fcHz, f.gainDb, f.q, sampling));
     // Preview the configured EQ independently of the playback switches.
     const combinedAt = (hz: number) =>
-      transfers.reduce(
-        (sum, tf) => sum + calculateFilterResponseDb(tf, hz, sampling),
-        c.preampDb,
-      );
-    const combined = FREQUENCIES.map(combinedAt);
+      transfers.reduce((sum, tf) => sum + calculateFilterResponseDb(tf, hz, sampling), c.preampDb);
+    const combined = frequencies.map(combinedAt);
     let html = `<defs><clipPath id="plot-clip"><rect x="${bounds.l}" y="${bounds.t}" width="${bounds.r - bounds.l}" height="${bounds.b - bounds.t}"/></clipPath></defs>`;
     const major = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
     const decades = [100, 1000, 10000];
-    for (const hz of [
+    const inView = (hz: number) =>
+      hz >= state.chartView.minHz - 0.001 && hz <= state.chartView.maxHz + 0.001;
+    const grid = [
       20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000,
       4000, 5000, 6000, 7000, 8000, 9000, 10000, 20000,
-    ])
+    ].filter(inView);
+    // Add useful labels at closer zoom levels, keeping adjacent labels apart.
+    const labels = new Set(major.filter(inView));
+    if (state.chartView.maxHz / state.chartView.minHz < 100) {
+      const step =
+        10 ** Math.floor(Math.log10((state.chartView.maxHz - state.chartView.minHz) / 8));
+      for (
+        let hz = Math.ceil(state.chartView.minHz / step) * step;
+        hz <= state.chartView.maxHz;
+        hz += step
+      ) {
+        if ([...labels].every((other) => Math.abs(xOf(hz) - xOf(other)) > 80)) {
+          labels.add(hz);
+          if (!grid.includes(hz)) grid.push(hz);
+        }
+      }
+    }
+    for (const hz of grid)
       html += /* HTML */ `<line
         x1="${xOf(hz)}"
         y1="24"
@@ -130,13 +161,13 @@ export function createChart({
         /><text x="42" y="${yOf(db) + 4}" text-anchor="end" class="axis"
           >${db > 0 ? '+' : ''}${db}</text
         >`;
-    for (const hz of major)
+    for (const hz of [...labels].sort((a, b) => a - b))
       html += /* HTML */ `<text
         x="${xOf(hz)}"
         y="${bounds.b + 28}"
         text-anchor="middle"
         class="axis ${decades.includes(hz) ? 'decade' : ''}"
-        >${fmt(hz)}</text
+        >${state.chartView.maxHz / state.chartView.minHz < 10 ? String(Math.round(hz)) : fmt(hz)}</text
       >`;
     html += '<g clip-path="url(#plot-clip)">';
     if (layers.bands)
@@ -180,7 +211,7 @@ export function createChart({
         d="${curve((hz, i) => filteredValue(hz, combined[i], c.preampDb, true))}"
       />`;
     c.filters.forEach((f, i) => {
-      if (f.enabled)
+      if (f.enabled && inView(f.fcHz))
         html += /* HTML */ `<g
           data-point="${i}"
           class="control-point"
@@ -239,12 +270,16 @@ export function createChart({
     $<SVGSVGElement>('#chart').innerHTML =
       html + '<g id="chart-hover" aria-hidden="true" pointer-events="none"></g>';
     drawHover();
-    const peak = Math.max(...combined);
+    const peak = Math.max(...FREQUENCIES.map(combinedAt));
     $('#peak-status').textContent =
-      peak > 0.05
-        ? `Peak ${signed(peak)} dB · consider Safe gain`
-        : `Peak ${signed(peak)} dB`;
+      peak > 0.05 ? `Peak ${signed(peak)} dB · consider Safe gain` : `Peak ${signed(peak)} dB`;
     $('#peak-status').className = peak > 0.05 ? 'warning' : '';
+    const full = state.chartView.maxHz / state.chartView.minHz >= 999.99;
+    $('#chart').classList.toggle('zoomed', !full);
+    $<HTMLButtonElement>('[data-action="zoom-frequency-out"]').disabled = full;
+    $<HTMLButtonElement>('[data-action="reset-frequency"]').disabled = full;
+    $<HTMLButtonElement>('[data-action="zoom-frequency-in"]').disabled =
+      state.chartView.maxHz / state.chartView.minHz <= 2 ** (1 / 6) + 0.00001;
   }
 
   function position(event: MouseEvent): Point {
@@ -256,7 +291,10 @@ export function createChart({
   }
   function values(point: Point) {
     return {
-      hz: 20 * 1000 ** clamp((point.x - bounds.l) / (bounds.r - bounds.l), 0, 1),
+      hz: frequencyAt(
+        getState().chartView,
+        clamp((point.x - bounds.l) / (bounds.r - bounds.l), 0, 1),
+      ),
       db: axisMax - ((point.y - bounds.t) / (bounds.b - bounds.t)) * (axisMax - axisMin),
     };
   }
@@ -266,20 +304,45 @@ export function createChart({
     draw();
   }).observe(svg);
   let drag: { id: number; index: number } | null = null;
+  let panDrag: { id: number; x: number; view: FrequencyWindow; moved: boolean } | null = null;
+  let lastPan = 0;
+  function setWindow(window: FrequencyWindow) {
+    onViewChange(window);
+    hoverPoint = null;
+    draw();
+  }
+  function zoom(factor: number, anchor = 0.5) {
+    setWindow(zoomFrequency(getState().chartView, factor, anchor));
+  }
   const pointIndex = (event: Event) =>
     event.target instanceof Element
       ? event.target.closest<SVGGElement>('[data-point]')?.dataset.point
       : undefined;
   svg.addEventListener('dblclick', (event) => {
-    if (pointIndex(event) !== undefined) return;
+    if (pointIndex(event) !== undefined || Date.now() - lastPan < 300) return;
     const p = position(event);
     if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) return;
     const v = values(p);
     onAdd(v.hz, v.db);
   });
   svg.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
     const index = pointIndex(event);
-    if (index === undefined) return;
+    if (index === undefined) {
+      const p = position(event);
+      if (
+        p.x < bounds.l ||
+        p.x > bounds.r ||
+        p.y < bounds.t ||
+        p.y > bounds.b ||
+        !svg.classList.contains('zoomed')
+      )
+        return;
+      event.preventDefault();
+      panDrag = { id: event.pointerId, x: p.x, view: { ...getState().chartView }, moved: false };
+      svg.setPointerCapture(event.pointerId);
+      return;
+    }
     event.preventDefault();
     onSelect(+index);
     onBegin();
@@ -289,6 +352,14 @@ export function createChart({
   });
   svg.addEventListener('pointermove', (event) => {
     const p = position(event);
+    if (panDrag?.id === event.pointerId) {
+      if (Math.abs(p.x - panDrag.x) > 4) panDrag.moved = true;
+      if (panDrag.moved) {
+        svg.classList.add('panning');
+        setWindow(panFrequency(panDrag.view, (panDrag.x - p.x) / (bounds.r - bounds.l)));
+      }
+      return;
+    }
     hoverPoint =
       event.pointerType !== 'touch' &&
       p.x >= bounds.l &&
@@ -310,18 +381,34 @@ export function createChart({
         drawHover();
       });
   });
-  function endDrag() {
+  function endDrag(event: PointerEvent) {
+    if (panDrag?.id === event.pointerId) {
+      if (panDrag.moved) lastPan = Date.now();
+      if (event.type === 'pointercancel') setWindow(panDrag.view);
+      panDrag = null;
+      svg.classList.remove('panning');
+    }
+    if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
     if (!drag) return;
     drag = null;
     onEnd();
   }
   svg.addEventListener('pointerup', endDrag);
   svg.addEventListener('pointercancel', endDrag);
+  svg.addEventListener('lostpointercapture', endDrag);
   svg.addEventListener('pointerleave', clearHover);
   window.addEventListener('blur', clearHover);
   svg.addEventListener(
     'wheel',
     (event) => {
+      if (event.shiftKey && !drag && !panDrag) {
+        const p = position(event);
+        if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) return;
+        event.preventDefault();
+        const delta = event.deltaY || event.deltaX;
+        zoom(delta < 0 ? 1.25 : 0.8, (p.x - bounds.l) / (bounds.r - bounds.l));
+        return;
+      }
       const index = pointIndex(event);
       if (index === undefined) return;
       event.preventDefault();
@@ -362,5 +449,12 @@ export function createChart({
     });
     svg.querySelector<SVGGElement>(`[data-point="${index}"]`)?.focus();
   });
-  return { draw };
+  return {
+    draw,
+    zoom,
+    resetZoom: () => {
+      const { minHz, maxHz } = defaultChartView();
+      setWindow({ minHz, maxHz });
+    },
+  };
 }

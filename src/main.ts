@@ -3,7 +3,7 @@ import { createEqualizerApoBackend } from './backends/equalizer-apo.ts';
 import { createLiveSync } from './backends/live-sync.ts';
 import { installBandRail } from './ui/band-rail.ts';
 import { installBandReordering } from './ui/band-reorder.ts';
-import { applyPresetImport, moveBand } from './preset-edits.ts';
+import { applyPresetImport, duplicateBand, moveBand } from './preset-edits.ts';
 import { installBandHover } from './ui/band-hover.ts';
 import { installCurveHover } from './ui/curve-hover.ts';
 import { createFileActions } from './ui/file-actions.ts';
@@ -31,8 +31,11 @@ import { createCurvePicker } from './curve-picker.ts';
 import { findCurve, removeCustomCurve, loadBuiltinCurve } from './curve-library.ts';
 import { createSettingsPopup } from './settings-popup.ts';
 import { installPresetReordering } from './preset-reorder.ts';
+import { installPresetSlide } from './ui/preset-slide.ts';
 import { createAutoEqPopup } from './autoeq-popup.ts';
 import { createChart } from './ui/chart.ts';
+import { getCurveDisplay } from './curve-level.ts';
+import { installChartResize } from './ui/chart-resize.ts';
 import { appMarkup, bandCards, bandEditor, presetList, channelButtons } from './ui/templates.ts';
 
 const KEY = 'peq-studio.workspace.v1';
@@ -161,9 +164,9 @@ const settingsPopup = createSettingsPopup({
   anchor: $<HTMLButtonElement>('[data-action="settings"]'),
   getState: () => state,
   onAlignmentChange: (method) => {
-    if (method !== state.curveDisplay.method)
+    if (method !== preset().curveAlignment.method)
       commit(() => {
-        state.curveDisplay.method = method;
+        preset().curveAlignment.method = method;
       });
   },
 });
@@ -172,7 +175,7 @@ function autoEqSignature() {
     preset: preset(),
     channel,
     sampleRate: state.sampleRate,
-    display: state.curveDisplay,
+    display: getCurveDisplay(state),
   });
 }
 const autoEqPopup = createAutoEqPopup({
@@ -193,7 +196,7 @@ const autoEqPopup = createAutoEqPopup({
     return {
       source: clone({ ...source, points: source.points }),
       target: clone({ ...target, points: target.points }),
-      display: clone(state.curveDisplay),
+      display: getCurveDisplay(state),
       sampleRate: state.sampleRate,
       signature: autoEqSignature(),
       scope: preset().linked ? 'both linked channels' : `${channel} channel`,
@@ -288,6 +291,19 @@ installPresetReordering($('#presets'), (id, targetId, after) => {
     state.presets = ids.map((value) => byId.get(value)!);
   });
 });
+function selectPreset(id: string, focus = true) {
+  if (state.activeId === id) return;
+  state.activeId = id;
+  selected = -1;
+  channel = 'left';
+  save();
+  render();
+  if (focus)
+    Array.from(document.querySelectorAll<HTMLElement>('.preset-select'))
+      .find((button) => button.dataset.id === id)
+      ?.focus({ preventScroll: true });
+}
+installPresetSlide($('#presets'), (id) => selectPreset(id, false));
 function render() {
   const p = preset(),
     c = current();
@@ -333,6 +349,7 @@ function render() {
   $('#band-count').textContent = String(c.filters.length);
   $('#bands').innerHTML = bandCards(c, selected);
   renderBandEditor();
+  chartResize.update();
   chart.draw();
   void restoreSelectedCurves();
   $('#sample-rate-label').textContent = String(`${state.sampleRate / 1000} kHz`);
@@ -347,6 +364,10 @@ const chart = createChart({
   getChannel: current,
   getSelected: () => selected,
   getLayers: () => layers,
+  onViewChange: (window) => {
+    Object.assign(state.chartView, window);
+    save();
+  },
   onSelect: (index) => {
     selected = index;
     renderBandEditor();
@@ -367,6 +388,13 @@ const chart = createChart({
     selected = index;
     commit(() => mutate(current().filters[index]));
   },
+});
+const chartResize = installChartResize({
+  getHeight: () => state.chartView.height,
+  onChange: (height) => {
+    state.chartView.height = height;
+  },
+  onEnd: save,
 });
 function addBand(hz = 1000, db = 0) {
   commit(() => {
@@ -519,6 +547,9 @@ const actions: Record<string, () => void | Promise<void>> = {
     commit(() => {
       state.curveDisplay.rangeDb += 5;
     }),
+  'zoom-frequency-in': () => chart.zoom(2),
+  'zoom-frequency-out': () => chart.zoom(0.5),
+  'reset-frequency': () => chart.resetZoom(),
   settings: () => {
     autoEqPopup.close();
     settingsPopup.toggle();
@@ -537,11 +568,7 @@ document.addEventListener('click', (event) => {
   if (action) return actions[action.dataset.action!]?.();
   const row = eventElement(event).closest<HTMLElement>('[data-id]');
   if (row) {
-    state.activeId = row.dataset.id!;
-    selected = -1;
-    channel = 'left';
-    save();
-    render();
+    selectPreset(row.dataset.id!);
     return;
   }
   const band = eventElement(event).closest<HTMLElement>('[data-band]');
@@ -567,6 +594,17 @@ document.addEventListener('click', (event) => {
       current().filters.splice(+remove.dataset.remove!, 1);
       selected = -1;
     });
+    return;
+  }
+  const duplicate = eventElement(event).closest<HTMLElement>('[data-duplicate-band]');
+  if (duplicate) {
+    commit(() => {
+      selected = duplicateBand(current(), Number(duplicate.dataset.duplicateBand));
+    });
+    document
+      .querySelector(`[data-band-card="${selected}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    undoToast('Band duplicated.');
     return;
   }
   const layer = eventElement(event).closest<HTMLElement>('[data-layer]');

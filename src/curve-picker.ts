@@ -103,7 +103,7 @@ export function createCurvePicker({
       ><span class="dropdown-chevron" aria-hidden="true"></span>`;
     trigger.title = selected?.name ?? 'None';
     query<HTMLInputElement>('input[data-adjust]', root).value = String(
-      getState().curveDisplay[`${kind}OffsetDb`],
+      activePreset(getState()).curveAlignment[`${kind}OffsetDb`],
     );
     if (popup) {
       renderList();

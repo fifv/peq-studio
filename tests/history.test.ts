@@ -9,7 +9,7 @@ test('undo restores independent snapshots and redo restores the changed workspac
   const before = structuredClone(state);
   history.capture(state);
   state.presets[0].left.filters = [];
-  state.curveDisplay.targetOffsetDb = 2.5;
+  state.presets[0].curveAlignment.targetOffsetDb = 2.5;
   const restored = history.restore(state, true);
   assert.deepEqual(restored, before);
   assert.equal(history.canUndo, false);
@@ -21,7 +21,7 @@ test('new edits discard redo and undo history retains the latest 80 changes', ()
   const history = new WorkspaceHistory();
   const state = initialState();
   for (let i = 0; i < 90; i++) {
-    state.curveDisplay.targetOffsetDb = i;
+    state.presets[0].curveAlignment.targetOffsetDb = i;
     history.capture(state);
   }
   let restored = state;
@@ -31,7 +31,7 @@ test('new edits discard redo and undo history retains the latest 80 changes', ()
     count++;
   }
   assert.equal(count, 80);
-  assert.equal(restored.curveDisplay.targetOffsetDb, 10);
+  assert.equal(restored.presets[0].curveAlignment.targetOffsetDb, 10);
   assert.equal(history.restore(restored, true), null);
   history.capture(restored);
   assert.equal(history.canRedo, false);

@@ -18,6 +18,7 @@ export interface Preset {
   name: string;
   targetId: string;
   sourceId: string;
+  curveAlignment: CurveAlignment;
   linked: boolean;
   enabled: boolean;
   filtersEnabled: boolean;
@@ -41,16 +42,24 @@ export interface MeasuredCurve extends Curve {
   points: CurvePoint[];
 }
 export type LevelMethod = 'band-energy' | 'band-average' | '1k' | 'none';
-export interface CurveDisplay {
+export interface CurveAlignment {
   method: LevelMethod;
   referenceDb: number;
   minHz: number;
   maxHz: number;
   targetOffsetDb: number;
   sourceOffsetDb: number;
+}
+export interface GraphDisplay {
   compensated: boolean;
   includePreamp: boolean;
   rangeDb: number;
+}
+export interface CurveDisplay extends CurveAlignment, GraphDisplay {}
+export interface ChartView {
+  height: number | null;
+  minHz: number;
+  maxHz: number;
 }
 export interface AutoEqOptions {
   maxBands: number;
@@ -70,7 +79,8 @@ export interface Workspace {
   activeId: string;
   curves: MeasuredCurve[];
   sampleRate: number;
-  curveDisplay: CurveDisplay;
+  curveDisplay: GraphDisplay;
+  chartView: ChartView;
   autoEqOptions: AutoEqOptions;
 }
 export interface SamplingOptions {

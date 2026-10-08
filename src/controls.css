@@ -121,6 +121,20 @@
 .preset-row {
   position: relative;
   gap: 0;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.preset-row:hover {
+  background: #202c40;
+  border-color: #34465f;
+}
+.preset-row.active:hover {
+  background: #223e64;
+  border-color: #3d6396;
+}
+.preset-row > :is(.preset-select, .preset-grip):hover {
+  background: transparent;
 }
 .preset-grip {
   flex: 0 0 18px;
@@ -484,6 +498,38 @@
 .band-remove:hover {
   color: #f4bbc5;
   background: #6d344c55;
+}
+.band-copy {
+  position: absolute;
+  right: 2px;
+  top: 24px;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 3px;
+  padding: 2px;
+  color: #6f839e;
+  background: transparent;
+}
+.band-copy svg {
+  width: 12px;
+  height: 12px;
+}
+.band-copy:hover {
+  color: #d6e0f0;
+  background: #c8dcff12;
+}
+#presets.slide-selecting,
+#presets.slide-selecting * {
+  user-select: none;
+  cursor: default;
+}
+.preset-select:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px #6f839e;
+}
+#presets.slide-selecting .preset-select {
+  box-shadow: none;
 }
 .add-band {
   height: 70px;

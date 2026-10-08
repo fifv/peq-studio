@@ -1,5 +1,5 @@
 import type { Channel, CurveDisplay, MeasuredCurve, Workspace } from './types.ts';
-import { curveShift } from './curve-level.ts';
+import { curveShift, getCurveDisplay } from './curve-level.ts';
 import { interpolate } from './curve-math.ts';
 import { findCurve } from './curve-library.ts';
 import { FREQUENCIES, response, playbackChannel } from './model.ts';
@@ -28,13 +28,14 @@ export function exportFilteredCurve(
 ): string {
   const source = findCurve(state, 'source');
   const target = findCurve(state, 'target');
+  const display = getCurveDisplay(state);
   if (!source) throw Error('Choose a source curve before exporting the filtered curve.');
   if (!source.points || (state.curveDisplay.compensated && target && !target.points))
     throw Error('Curve data is still loading. Please try again.');
   const { filteredValue } = displayedCurves(
     { ...source, points: source.points },
     target?.points ? { ...target, points: target.points } : null,
-    state.curveDisplay,
+    display,
   );
   const playing = playbackChannel(channel, { enabled, filtersEnabled });
   const rows = FREQUENCIES.map((hz) => {
@@ -46,7 +47,7 @@ export function exportFilteredCurve(
   return [
     '# Filtered curve — current display levels',
     `# Sample rate: ${state.sampleRate} Hz; PEQ: ${!enabled ? 'bypassed' : filtersEnabled ? 'on' : 'preamp only'}`,
-    `# Alignment: ${state.curveDisplay.method}; preamp: ${state.curveDisplay.includePreamp ? 'included' : 'excluded'}; compensated: ${state.curveDisplay.compensated ? 'yes' : 'no'}`,
+    `# Alignment: ${display.method}; preamp: ${display.includePreamp ? 'included' : 'excluded'}; compensated: ${display.compensated ? 'yes' : 'no'}`,
     'Frequency (Hz),Amplitude (dB)',
     ...rows,
     '',

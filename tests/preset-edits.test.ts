@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initialState, newBand, newPreset, validateState } from '../src/model.ts';
 import { activePreset } from '../src/utils.ts';
-import { applyPresetImport, moveBand } from '../src/preset-edits.ts';
+import { applyPresetImport, duplicateBand, moveBand } from '../src/preset-edits.ts';
 import { WorkspaceHistory } from '../src/history.ts';
 
 test('replace import preserves identity and curves, replaces both channels, and undoes as one edit', () => {
@@ -95,4 +95,29 @@ test('reordering moves the whole filter, tracks selection in both directions, an
     activePreset(state).left.filters.map((f) => f.fcHz),
     [100, 200, 300],
   );
+});
+
+test('duplicating inserts an independent band next to the original, preserves settings, and undoes', () => {
+  const state = initialState();
+  const channel = activePreset(state).left;
+  channel.filters = [
+    newBand(100),
+    { ...newBand(500, -4), type: 'LSC', enabled: false, q: 2 },
+    newBand(2000),
+  ];
+  const before = structuredClone(state);
+  const history = new WorkspaceHistory();
+  history.capture(state);
+  assert.equal(duplicateBand(channel, 1), 2);
+  assert.deepEqual(
+    channel.filters.map((f) => f.fcHz),
+    [100, 500, 500, 2000],
+  );
+  assert.deepEqual(channel.filters[2], channel.filters[1]);
+  channel.filters[2].gainDb = 3;
+  assert.equal(channel.filters[1].gainDb, -4);
+  assert.equal(validateState(state).presets[0].left.filters[2].gainDb, 3);
+  assert.deepEqual(history.restore(state, true), before);
+  assert.equal(duplicateBand(channel, 3), 4);
+  assert.equal(channel.filters[4].fcHz, 2000);
 });

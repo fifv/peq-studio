@@ -1,6 +1,6 @@
 import type { Channel, CurveDisplay, Filter, NumericSpec, Workspace } from '../types.ts';
 import { installNumericControls } from '../numeric-controls.ts';
-import { clamp, formatFrequency, signed } from '../utils.ts';
+import { activePreset, clamp, formatFrequency, signed } from '../utils.ts';
 import { defaultCurveDisplay } from '../curve-level.ts';
 import { newBand } from '../model.ts';
 
@@ -69,7 +69,7 @@ export function createEditorControls({
       };
     const displayField = displayFields[name];
     if (displayField) {
-      const display = getState().curveDisplay;
+      const display = activePreset(getState()).curveAlignment;
       return {
         ...base,
         ...displayField,
@@ -135,7 +135,7 @@ export function createEditorControls({
         getChannel().preampDb = value;
         break;
       case 'display':
-        getState().curveDisplay[control.property] = value;
+        activePreset(getState()).curveAlignment[control.property] = value;
         break;
       case 'filter':
         getChannel().filters[control.index][control.property] = value;

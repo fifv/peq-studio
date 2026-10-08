@@ -35,3 +35,11 @@ export function moveBand(channel: Channel, from: number, to: number, selected: n
   channel.filters.splice(to, 0, filter);
   return selection ? channel.filters.indexOf(selection) : -1;
 }
+
+/** Insert an independent copy immediately after its source and select it. */
+export function duplicateBand(channel: Channel, index: number): number {
+  const filter = channel.filters[index];
+  if (!filter) return -1;
+  channel.filters.splice(index + 1, 0, clone(filter));
+  return index + 1;
+}

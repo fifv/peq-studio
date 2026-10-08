@@ -1,7 +1,7 @@
 import { positionPopup, installPopupEvents } from './ui/popover.ts';
 import { query, eventElement } from './dom.ts';
 import type { Workspace, LevelMethod } from './types.ts';
-import { LEVEL_METHODS, curveReferenceLevel } from './curve-level.ts';
+import { LEVEL_METHODS, curveReferenceLevel, getCurveDisplay } from './curve-level.ts';
 import { findCurve } from './curve-library.ts';
 import { renderToggle } from './ui/toggle.ts';
 
@@ -39,7 +39,7 @@ export function createSettingsPopup({
   function update() {
     if (!popup) return;
     const state = getState(),
-      settings = state.curveDisplay;
+      settings = getCurveDisplay(state);
     for (const [id, value] of Object.entries({
       'sample-rate': state.sampleRate,
       'reference-level': settings.referenceDb,

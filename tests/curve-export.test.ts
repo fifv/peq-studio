@@ -13,7 +13,7 @@ function setup() {
   const preset = activePreset(state);
   preset.sourceId = source.id;
   preset.targetId = target.id;
-  state.curveDisplay.method = 'none';
+  preset.curveAlignment.method = 'none';
   preset.left = {
     preampDb: -3,
     filters: [newBand(FREQUENCIES[100], 6), { ...newBand(1000, 12), enabled: false }],
@@ -42,10 +42,10 @@ test('filtered CSV round trips with 512 points and respects filters, sample rate
 test('export follows alignment, independent offsets and target compensation', () => {
   const { state, preset } = setup();
   preset.left.filters = [];
-  state.curveDisplay.method = 'band-average';
-  state.curveDisplay.referenceDb = 75;
-  state.curveDisplay.sourceOffsetDb = 3;
-  state.curveDisplay.targetOffsetDb = 2;
+  preset.curveAlignment.method = 'band-average';
+  preset.curveAlignment.referenceDb = 75;
+  preset.curveAlignment.sourceOffsetDb = 3;
+  preset.curveAlignment.targetOffsetDb = 2;
   const values = () =>
     parseCurve(exportFilteredCurve(state, preset.left, true), 'Filtered').points.map(
       ([, db]) => db,
@@ -53,7 +53,7 @@ test('export follows alignment, independent offsets and target compensation', ()
   assert.ok(values().every((db) => db === 78));
   state.curveDisplay.compensated = true;
   assert.ok(values().every((db) => db === 1));
-  state.curveDisplay.method = 'none';
+  preset.curveAlignment.method = 'none';
   assert.ok(values().every((db) => db === 11));
 });
 

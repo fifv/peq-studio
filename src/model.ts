@@ -12,7 +12,13 @@ import { record, readCurvePoints, bounded as number, finite as gain } from './va
 import { parseAny, toRewText } from './vendor/topping-formats.js';
 import { normalizeFilterTypeCode, calculateCombinedResponseDb } from './response.ts';
 import { interpolate } from './curve-math.ts';
-import { defaultCurveDisplay, normalizeCurveDisplay } from './curve-level.ts';
+import {
+  defaultCurveAlignment,
+  defaultGraphDisplay,
+  normalizeCurveAlignment,
+  normalizeGraphDisplay,
+} from './curve-level.ts';
+import { defaultChartView, normalizeChartView } from './chart-view.ts';
 import { defaultAutoEqOptions, validateAutoEqOptions } from './autoeq.ts';
 export { interpolate } from './curve-math.ts';
 
@@ -54,6 +60,7 @@ export const newPreset = (
   name,
   targetId: '',
   sourceId: '',
+  curveAlignment: defaultCurveAlignment(),
   linked: true,
   enabled: true,
   filtersEnabled: true,
@@ -79,7 +86,8 @@ export function initialState(): Workspace {
     activeId: example.id,
     curves: [],
     sampleRate: 48000,
-    curveDisplay: defaultCurveDisplay(),
+    curveDisplay: defaultGraphDisplay(),
+    chartView: defaultChartView(),
     autoEqOptions: defaultAutoEqOptions(),
   };
 }
@@ -138,6 +146,7 @@ export function importPreset(text: string, name: string): Preset {
       ...newPreset(String(p.name || name)),
       targetId: typeof p.targetId === 'string' ? p.targetId : '',
       sourceId: typeof p.sourceId === 'string' ? p.sourceId : '',
+      curveAlignment: normalizeCurveAlignment(p.curveAlignment),
       linked: p.linked !== false,
       enabled: p.enabled !== false,
       filtersEnabled: p.filtersEnabled !== false,
@@ -267,6 +276,7 @@ export function validateState(value: unknown): Workspace {
       filtersEnabled: p.filtersEnabled !== false,
       left: validateChannel(p.left),
       right: validateChannel(p.right),
+      curveAlignment: normalizeCurveAlignment(p.curveAlignment ?? state.curveDisplay),
     };
   });
   if (!Array.isArray(state.curves)) throw Error('Invalid saved curves.');
@@ -303,7 +313,8 @@ export function validateState(value: unknown): Workspace {
       [44100, 48000, 96000, 192000].includes(state.sampleRate)
         ? state.sampleRate
         : 48000,
-    curveDisplay: normalizeCurveDisplay(state.curveDisplay),
+    curveDisplay: normalizeGraphDisplay(state.curveDisplay),
+    chartView: normalizeChartView(state.chartView),
     autoEqOptions,
   };
 }

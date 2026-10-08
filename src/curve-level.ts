@@ -1,5 +1,13 @@
-import type { CurveDisplay, CurveRole, MeasuredCurve } from './types.ts';
+import type {
+  CurveAlignment,
+  CurveDisplay,
+  CurveRole,
+  GraphDisplay,
+  MeasuredCurve,
+  Workspace,
+} from './types.ts';
 import { interpolate } from './curve-math.ts';
+import { activePreset } from './utils.ts';
 
 export const LEVEL_METHODS = {
   'band-energy': 'Broadband energy match',
@@ -7,17 +15,35 @@ export const LEVEL_METHODS = {
   '1k': 'Align at 1 kHz',
   none: 'Original levels',
 };
-export const defaultCurveDisplay = (): CurveDisplay => ({
+export const defaultCurveAlignment = (): CurveAlignment => ({
   method: 'band-average',
   referenceDb: 0,
   minHz: 100,
   maxHz: 10000,
   targetOffsetDb: 0,
   sourceOffsetDb: 0,
+});
+export const defaultGraphDisplay = (): GraphDisplay => ({
   compensated: false,
   includePreamp: false,
   rangeDb: 25,
 });
+export const defaultCurveDisplay = (): CurveDisplay => ({
+  ...defaultCurveAlignment(),
+  ...defaultGraphDisplay(),
+});
+export function getCurveDisplay(state: Workspace): CurveDisplay {
+  return { ...state.curveDisplay, ...activePreset(state).curveAlignment };
+}
+export function normalizeCurveAlignment(value?: unknown): CurveAlignment {
+  const { method, referenceDb, minHz, maxHz, targetOffsetDb, sourceOffsetDb } =
+    normalizeCurveDisplay(value);
+  return { method, referenceDb, minHz, maxHz, targetOffsetDb, sourceOffsetDb };
+}
+export function normalizeGraphDisplay(value?: unknown): GraphDisplay {
+  const { compensated, includePreamp, rangeDb } = normalizeCurveDisplay(value);
+  return { compensated, includePreamp, rangeDb };
+}
 export function normalizeCurveDisplay(value: unknown = {}) {
   const settings = {
     ...defaultCurveDisplay(),

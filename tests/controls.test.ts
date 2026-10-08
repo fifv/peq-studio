@@ -17,6 +17,8 @@ import {
   curveReferenceLevel,
   curveShift,
   defaultCurveDisplay,
+  defaultGraphDisplay,
+  getCurveDisplay,
   normalizeCurveDisplay,
 } from '../src/curve-level.ts';
 const near = (a: number, b: number, tolerance = 1e-6) =>
@@ -100,17 +102,17 @@ test('manual offsets apply independently after alignment and in original-level m
 });
 test('curve display settings persist and old backups migrate safely', () => {
   const state = initialState();
-  assert.equal(state.curveDisplay.method, 'band-average');
+  assert.equal(state.presets[0].curveAlignment.method, 'band-average');
   assert.equal(state.curveDisplay.includePreamp, false);
-  state.curveDisplay.method = 'band-energy';
-  state.curveDisplay.referenceDb = 75;
-  state.curveDisplay.sourceOffsetDb = -2;
+  state.presets[0].curveAlignment.method = 'band-energy';
+  state.presets[0].curveAlignment.referenceDb = 75;
+  state.presets[0].curveAlignment.sourceOffsetDb = -2;
   assert.deepEqual(
-    validateState(JSON.parse(JSON.stringify(state))).curveDisplay,
-    state.curveDisplay,
+    getCurveDisplay(validateState(JSON.parse(JSON.stringify(state)))),
+    getCurveDisplay(state),
   );
   const { curveDisplay: _removed, ...legacy } = state;
-  assert.deepEqual(validateState(legacy).curveDisplay, defaultCurveDisplay());
+  assert.deepEqual(validateState(legacy).curveDisplay, defaultGraphDisplay());
   const repaired = normalizeCurveDisplay({
     method: 'bad',
     minHz: 12000,

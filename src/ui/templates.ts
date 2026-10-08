@@ -70,8 +70,47 @@ export function appMarkup() {
         </div>
         <div class="graph-area">
           <div class="chart-controls">
-            <button data-action="zoom-in" aria-label="Zoom in">+</button
-            ><button data-action="zoom-out" aria-label="Zoom out">−</button>
+            <div class="chart-control-group" aria-label="Frequency zoom">
+              <span>Hz</span>
+              <button
+                data-action="zoom-frequency-in"
+                aria-label="Zoom in horizontally"
+                title="Zoom in horizontally"
+              >
+                +
+              </button>
+              <button
+                data-action="zoom-frequency-out"
+                aria-label="Zoom out horizontally"
+                title="Zoom out horizontally"
+              >
+                −
+              </button>
+              <button
+                data-action="reset-frequency"
+                class="chart-reset"
+                title="Show full frequency range"
+              >
+                Reset
+              </button>
+            </div>
+            <div class="chart-control-group" aria-label="Amplitude zoom">
+              <span>dB</span>
+              <button
+                data-action="zoom-in"
+                aria-label="Zoom in vertically"
+                title="Zoom in vertically"
+              >
+                +
+              </button>
+              <button
+                data-action="zoom-out"
+                aria-label="Zoom out vertically"
+                title="Zoom out vertically"
+              >
+                −
+              </button>
+            </div>
           </div>
           <svg
             id="chart"
@@ -81,8 +120,21 @@ export function appMarkup() {
           ></svg>
           <div class="graph-footer">
             <span id="graph-hint"
-              >Double-click to add a band · Drag to tune · Scroll a band to adjust Q</span
-            ><span id="peak-status"></span>
+              >Double-click to add · Drag band to tune · Shift + scroll to zoom · Drag graph to
+              pan</span
+            >
+            <div
+              id="chart-resize"
+              role="separator"
+              tabindex="0"
+              aria-label="Chart height"
+              aria-orientation="horizontal"
+              aria-valuemin="220"
+              aria-valuemax="1400"
+              aria-controls="chart"
+              title="Drag to resize chart · Arrow keys adjust height · Double-click or Home for automatic height"
+            ></div>
+            <span id="peak-status"></span>
           </div>
         </div>
         <div class="band-panel">
@@ -181,6 +233,14 @@ export function bandCards(c: Channel, selected: number) {
               ></button
             ><button class="band-remove" data-remove="${i}" aria-label="Remove band ${i + 1}">
               ×
+            </button>
+            <button
+              class="band-copy"
+              data-duplicate-band="${i}"
+              aria-label="Duplicate band ${i + 1}"
+              title="Duplicate band"
+            >
+              ${icon('copy')}
             </button>
             <button
               class="band-reorder"
