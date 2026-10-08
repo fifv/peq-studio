@@ -30,7 +30,7 @@ export function createAutoEqPopup({
     step = 1,
     unit = '',
   ) =>
-    `<label>${title}<div class="unit-input"><input name="${name}" type="number" data-adjust="autoeq" data-adjust-step="${step}" title="Drag up/down or use mouse wheel · Shift for fine adjustment" min="${min}" ${max === null ? '' : `max="${max}"`} step="${name === 'maxBands' ? 1 : 'any'}" value="${options[name]}" required/>${unit}</div></label>`;
+    `<label>${title}<div class="unit-input"><input name="${name}" type="number" data-adjust="autoeq" data-adjust-step="${step}" title="Drag up/down or use mouse wheel · Shift for fine adjustment · Alt for 5× wheel speed" min="${min}" ${max === null ? '' : `max="${max}"`} step="${name === 'maxBands' ? 1 : 'any'}" value="${options[name]}" required/>${unit}</div></label>`;
   installNumericControls({
     getControl: (element) => {
       if (

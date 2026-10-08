@@ -1,4 +1,22 @@
 import type { NumericSpec } from './types.ts';
+
+export function wheelSteps(event: Pick<WheelEvent, 'deltaY' | 'shiftKey' | 'altKey'>) {
+  return Math.sign(-event.deltaY) * (event.shiftKey ? 0.1 : 1) * (event.altKey ? 5 : 1);
+}
+
+export const qAdjustment = { min: 0.1, max: 20, step: 0.05, precision: 5, wheelRatio: 1.05 };
+
+export function adjustedWheelValue(
+  start: number,
+  event: Pick<WheelEvent, 'deltaY' | 'shiftKey' | 'altKey'>,
+  spec: Pick<NumericSpec, 'min' | 'max' | 'step' | 'precision' | 'log' | 'wheelRatio'>,
+) {
+  const steps = wheelSteps(event);
+  return spec.wheelRatio
+    ? adjustedValue(start * spec.wheelRatio ** steps, 0, spec)
+    : adjustedValue(start, steps, spec);
+}
+
 export function adjustedValue(
   start: number,
   steps: number,
@@ -168,10 +186,7 @@ export function installNumericControls<T extends NumericSpec>({
         onBegin();
         wheel = spec;
       }
-      onChange(
-        spec,
-        adjustedValue(spec.value, (event.deltaY < 0 ? 1 : -1) * (event.shiftKey ? 0.1 : 1), spec),
-      );
+      onChange(spec, adjustedWheelValue(spec.value, event, spec));
       clearTimeout(wheelTimer);
       wheelTimer = setTimeout(finishWheel, 300);
     },

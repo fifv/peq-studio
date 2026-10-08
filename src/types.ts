@@ -141,6 +141,7 @@ export interface NumericSpec {
   max: number;
   step: number;
   log?: boolean;
+  wheelRatio?: number;
   precision?: number;
 }
 export interface PopupController {

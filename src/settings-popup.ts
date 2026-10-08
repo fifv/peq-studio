@@ -144,7 +144,7 @@ export function createSettingsPopup({
       ${renderToggle('Compensated view (subtract target)', { id: 'compensated' })}
       <p class="settings-note">
         Relative curve comparison, not a calibrated listening SPL. Drag values up/down or use the
-        wheel; Shift for fine adjustment.
+        wheel; Shift for fine adjustment, Alt for 5× wheel speed.
       </p>`;
     const alignment = document.createElement('div');
     alignment.className = 'alignment-picker';

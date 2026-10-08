@@ -73,7 +73,7 @@ export function createCurvePicker({
           max="120"
           step="0.1"
           aria-label="${kind === 'target' ? 'Target' : 'Source'} curve offset"
-          title="Drag up/down or use mouse wheel"
+          title="Drag up/down or use mouse wheel · Alt for 5× wheel speed"
         />dB</span
       ></label
     >`,

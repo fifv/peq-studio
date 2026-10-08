@@ -227,13 +227,14 @@ function renderPresets() {
   $('#presets').innerHTML = presetList(state, search);
 }
 function duplicatePreset(id: string) {
-  const source = state.presets.find((p) => p.id === id);
+  const index = state.presets.findIndex((p) => p.id === id);
+  const source = state.presets[index];
   if (!source) return;
   commit(() => {
     const copy = clone(source);
     copy.id = crypto.randomUUID();
     copy.name += ' · copy';
-    state.presets.push(copy);
+    state.presets.splice(index + 1, 0, copy);
     state.activeId = copy.id;
     selected = -1;
   });

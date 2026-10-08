@@ -8,6 +8,7 @@ import { interpolate } from '../curve-math.ts';
 import { getTransferFunction, calculateFilterResponseDb } from '../response.ts';
 import { hoverMarkup } from '../chart-hover.ts';
 import { getCurveDisplay } from '../curve-level.ts';
+import { adjustedWheelValue, qAdjustment } from '../numeric-controls.ts';
 import {
   defaultChartView,
   frequencyAt,
@@ -403,7 +404,8 @@ export function createChart({
   svg.addEventListener(
     'wheel',
     (event) => {
-      if (event.shiftKey && !drag && !panDrag) {
+      const index = pointIndex(event);
+      if (index === undefined && event.shiftKey && !drag && !panDrag) {
         const p = position(event);
         if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) return;
         event.preventDefault();
@@ -411,11 +413,10 @@ export function createChart({
         zoom(delta < 0 ? 1.25 : 0.8, (p.x - bounds.l) / (bounds.r - bounds.l));
         return;
       }
-      const index = pointIndex(event);
-      if (index === undefined) return;
+      if (index === undefined || event.deltaY === 0) return;
       event.preventDefault();
       onCommit(+index, (filter) => {
-        filter.q = +clamp(filter.q + (event.deltaY < 0 ? 0.05 : -0.05), 0.1, 20).toFixed(2);
+        filter.q = adjustedWheelValue(filter.q, event, qAdjustment);
       });
     },
     { passive: false },

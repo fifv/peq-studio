@@ -1,5 +1,5 @@
 import type { Channel, CurveDisplay, Filter, NumericSpec, Workspace } from '../types.ts';
-import { installNumericControls } from '../numeric-controls.ts';
+import { installNumericControls, qAdjustment } from '../numeric-controls.ts';
 import { activePreset, clamp, formatFrequency, signed } from '../utils.ts';
 import { defaultCurveDisplay } from '../curve-level.ts';
 import { newBand } from '../model.ts';
@@ -9,7 +9,10 @@ type DisplayProperty = Extract<
   keyof CurveDisplay,
   'targetOffsetDb' | 'sourceOffsetDb' | 'referenceDb' | 'minHz' | 'maxHz'
 >;
-type Field<P> = { property: P; min: number; max: number; step: number; log?: boolean };
+type Field<P> = { property: P } & Pick<
+  NumericSpec,
+  'min' | 'max' | 'step' | 'log' | 'precision' | 'wheelRatio'
+>;
 type EditorControl = NumericSpec & { name: string } & (
     | { kind: 'preamp' }
     | { kind: 'display'; property: DisplayProperty }
@@ -19,7 +22,7 @@ type EditorControl = NumericSpec & { name: string } & (
 const filterFields: Record<string, Field<FilterProperty>> = {
   frequency: { property: 'fcHz', min: 20, max: 20000, step: 1, log: true },
   gain: { property: 'gainDb', min: -Infinity, max: Infinity, step: 0.1 },
-  q: { property: 'q', min: 0.1, max: 20, step: 0.05 },
+  q: { property: 'q', ...qAdjustment },
 };
 const displayFields: Record<string, Field<DisplayProperty>> = {
   'target-offset': { property: 'targetOffsetDb', min: -120, max: 120, step: 0.1 },
