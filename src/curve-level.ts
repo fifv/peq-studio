@@ -10,14 +10,15 @@ import { interpolate } from './curve-math.ts';
 import { activePreset } from './utils.ts';
 
 export const LEVEL_METHODS = {
-  'band-energy': 'Broadband energy match',
   'band-average': 'Broadband average (dB)',
-  '1k': 'Align at 1 kHz',
+  'band-energy': 'Broadband energy match',
+  '1k': 'Align at frequency',
   none: 'Original levels',
 };
 export const defaultCurveAlignment = (): CurveAlignment => ({
   method: 'band-average',
   referenceDb: 0,
+  alignmentHz: 1000,
   minHz: 100,
   maxHz: 10000,
   targetOffsetDb: 0,
@@ -36,9 +37,9 @@ export function getCurveDisplay(state: Workspace): CurveDisplay {
   return { ...state.curveDisplay, ...activePreset(state).curveAlignment };
 }
 export function normalizeCurveAlignment(value?: unknown): CurveAlignment {
-  const { method, referenceDb, minHz, maxHz, targetOffsetDb, sourceOffsetDb } =
+  const { method, referenceDb, alignmentHz, minHz, maxHz, targetOffsetDb, sourceOffsetDb } =
     normalizeCurveDisplay(value);
-  return { method, referenceDb, minHz, maxHz, targetOffsetDb, sourceOffsetDb };
+  return { method, referenceDb, alignmentHz, minHz, maxHz, targetOffsetDb, sourceOffsetDb };
 }
 export function normalizeGraphDisplay(value?: unknown): GraphDisplay {
   const { compensated, includePreamp, rangeDb } = normalizeCurveDisplay(value);
@@ -53,6 +54,7 @@ export function normalizeCurveDisplay(value: unknown = {}) {
     settings.method = defaultCurveDisplay().method;
   for (const [key, min, max] of [
     ['referenceDb', -60, 120],
+    ['alignmentHz', 20, 20000],
     ['targetOffsetDb', -120, 120],
     ['sourceOffsetDb', -120, 120],
     ['minHz', 20, 19999],
@@ -80,7 +82,8 @@ export function curveReferenceLevel(
   settings: CurveDisplay,
 ) {
   if (!curve?.points?.length || settings.method === 'none') return 0;
-  if (settings.method === '1k') return interpolate(curve.points, 1000);
+  // Keep the legacy method ID so existing presets still select frequency alignment.
+  if (settings.method === '1k') return interpolate(curve.points, settings.alignmentHz);
   const key = `${settings.method}:${settings.minHz}:${settings.maxHz}`;
   let entries = levelCache.get(curve);
   if (!entries) {

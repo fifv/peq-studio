@@ -3,11 +3,12 @@ import { installNumericControls, qAdjustment } from '../numeric-controls.ts';
 import { activePreset, clamp, formatFrequency, signed } from '../utils.ts';
 import { defaultCurveDisplay } from '../curve-level.ts';
 import { newBand } from '../model.ts';
+import { adjustBands } from '../band-selection.ts';
 
 type FilterProperty = Extract<keyof Filter, 'fcHz' | 'gainDb' | 'q'>;
 type DisplayProperty = Extract<
   keyof CurveDisplay,
-  'targetOffsetDb' | 'sourceOffsetDb' | 'referenceDb' | 'minHz' | 'maxHz'
+  'targetOffsetDb' | 'sourceOffsetDb' | 'referenceDb' | 'alignmentHz' | 'minHz' | 'maxHz'
 >;
 type Field<P> = { property: P } & Pick<
   NumericSpec,
@@ -17,6 +18,7 @@ type EditorControl = NumericSpec & { name: string } & (
     | { kind: 'preamp' }
     | { kind: 'display'; property: DisplayProperty }
     | { kind: 'filter'; property: FilterProperty; index: number }
+    | { kind: 'group'; property: FilterProperty; indices: number[] }
   );
 
 const filterFields: Record<string, Field<FilterProperty>> = {
@@ -28,6 +30,7 @@ const displayFields: Record<string, Field<DisplayProperty>> = {
   'target-offset': { property: 'targetOffsetDb', min: -120, max: 120, step: 0.1 },
   'source-offset': { property: 'sourceOffsetDb', min: -120, max: 120, step: 0.1 },
   'reference-level': { property: 'referenceDb', min: -60, max: 120, step: 0.1 },
+  'alignment-frequency': { property: 'alignmentHz', min: 20, max: 20000, step: 1, log: true },
   'level-min': { property: 'minHz', min: 20, max: 19999, step: 1, log: true },
   'level-max': { property: 'maxHz', min: 21, max: 20000, step: 1, log: true },
 };
@@ -36,6 +39,7 @@ interface EditorControlsOptions {
   getState: () => Workspace;
   getChannel: () => Channel;
   getSelected: () => number;
+  getSelection?: () => number[];
   onSelect: (index: number) => void;
   onBegin: () => void;
   onChange: () => void;
@@ -48,6 +52,7 @@ export function createEditorControls({
   getState,
   getChannel,
   getSelected,
+  getSelection = () => [getSelected()],
   onSelect,
   onBegin,
   onChange,
@@ -55,11 +60,60 @@ export function createEditorControls({
   onRefresh,
 }: EditorControlsOptions) {
   let typingKey: string | null = null;
+  const groupValues = { fcHz: 1, gainDb: 0, q: 1 };
+  let groupFilters: Filter[] | null = null;
+  let groupIndices = '';
+  let groupDraft: HTMLInputElement | null = null;
+  function resetGroup() {
+    Object.assign(groupValues, { fcHz: 1, gainDb: 0, q: 1 });
+  }
+  function finishAdjustment() {
+    onEnd();
+    resetGroup();
+    refresh();
+  }
 
   function resolve(element: HTMLElement): EditorControl | null {
     const name = element.dataset.adjust;
     if (!name) return null;
     const base = { name, key: name, element };
+    if (name.startsWith('group-')) {
+      const field = filterFields[name.slice(6)];
+      if (!field) return null;
+      const signature = getSelection().join(',');
+      if (groupFilters !== getChannel().filters || groupIndices !== signature) {
+        resetGroup();
+        groupDraft = null;
+        groupFilters = getChannel().filters;
+        groupIndices = signature;
+      }
+      const indices = getSelection().filter((index) => {
+        const filter = getChannel().filters[index];
+        return filter && (field.property !== 'gainDb' || !['LP', 'HP'].includes(filter.type));
+      });
+      if (!indices.length) return null;
+      const filters = indices.map((index) => getChannel().filters[index]);
+      const value = groupValues[field.property];
+      return {
+        ...base,
+        ...field,
+        precision: 7,
+        kind: 'group',
+        property: field.property,
+        indices,
+        key: `${name}:${indices.join(',')}`,
+        value,
+        resetValue: field.property === 'gainDb' ? 0 : 1,
+        min:
+          field.property === 'gainDb'
+            ? field.min
+            : value * Math.max(...filters.map((f) => field.min / f[field.property])),
+        max:
+          field.property === 'gainDb'
+            ? field.max
+            : value * Math.min(...filters.map((f) => field.max / f[field.property])),
+      };
+    }
     if (name === 'preamp')
       return {
         ...base,
@@ -108,7 +162,13 @@ export function createEditorControls({
           element.min = String(Math.min(-24, control.value));
           element.max = String(Math.max(12, control.value));
         }
-        if (element !== typingElement) element.value = String(+control.value.toFixed(4));
+        if (element !== typingElement && element !== groupDraft) {
+          const displayValue =
+            control.kind === 'group' && control.property !== 'gainDb'
+              ? (control.value - 1) * 100
+              : control.value;
+          element.value = String(+displayValue.toFixed(4));
+        }
       } else {
         const label = element.querySelector('.number-value');
         if (!label) return;
@@ -123,7 +183,9 @@ export function createEditorControls({
     });
     document
       .querySelectorAll('.band-card')
-      .forEach((element, index) => element.classList.toggle('selected', index === getSelected()));
+      .forEach((element, index) =>
+        element.classList.toggle('selected', getSelection().includes(index)),
+      );
     onRefresh();
   }
 
@@ -144,6 +206,17 @@ export function createEditorControls({
         getChannel().filters[control.index][control.property] = value;
         if (getSelected() !== control.index) onSelect(control.index);
         break;
+      case 'group': {
+        const filters = control.indices.map((index) => getChannel().filters[index]);
+        const previous = groupValues[control.property];
+        adjustBands(
+          filters,
+          control.property,
+          control.property === 'gainDb' ? value - previous : value / previous,
+        );
+        groupValues[control.property] = value;
+        break;
+      }
     }
     onChange();
     refresh(typingElement);
@@ -153,15 +226,20 @@ export function createEditorControls({
     getControl: resolve,
     onBegin: () => {
       typingKey = null;
+      groupDraft = null;
       onBegin();
     },
     onChange: apply,
-    onEnd,
+    onEnd: finishAdjustment,
   });
   document.addEventListener('input', (event) => {
     const element = event.target;
     if (!(element instanceof HTMLInputElement) || !element.matches('[data-adjust]')) return;
     const control = resolve(element);
+    if (control?.kind === 'group') {
+      groupDraft = element;
+      return;
+    }
     const value = Number(element.value);
     if (!control || element.value === '' || !Number.isFinite(value)) return;
     if (typingKey !== control.key) {
@@ -172,6 +250,10 @@ export function createEditorControls({
     onEnd();
   });
   document.addEventListener('focusout', (event) => {
+    if (event.target === groupDraft) {
+      applyGroupDraft(groupDraft!);
+      return;
+    }
     if (event.target instanceof HTMLElement && resolve(event.target)?.key === typingKey) {
       typingKey = null;
       refresh();
@@ -179,12 +261,45 @@ export function createEditorControls({
   });
   document.addEventListener('change', (event) => {
     if (event.target instanceof HTMLInputElement && resolve(event.target)) {
+      if (resolve(event.target)?.kind === 'group') {
+        if (event.target === groupDraft) applyGroupDraft(event.target);
+        return;
+      }
       if (event.target.type === 'range') {
         typingKey = null;
         return;
       }
       refresh();
       onEnd();
+    }
+  });
+  function applyGroupDraft(element: HTMLInputElement) {
+    const control = resolve(element);
+    const typed = Number(element.value);
+    groupDraft = null;
+    if (
+      control?.kind !== 'group' ||
+      element.value === '' ||
+      !Number.isFinite(typed) ||
+      typed === 0
+    ) {
+      refresh();
+      return;
+    }
+    onBegin();
+    apply(control, control.property === 'gainDb' ? typed : 1 + typed / 100);
+    finishAdjustment();
+  }
+  document.addEventListener('keydown', (event) => {
+    if (!(event.target instanceof HTMLInputElement) || resolve(event.target)?.kind !== 'group')
+      return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (event.target === groupDraft) applyGroupDraft(event.target);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      groupDraft = null;
+      refresh();
     }
   });
   return { refresh };

@@ -16,19 +16,8 @@ export function createSettingsPopup({
   onAlignmentChange: (method: LevelMethod) => void;
 }) {
   let popup: HTMLElement | null = null;
-  function setAlignmentOpen(open: boolean, focus = false) {
-    const trigger = query('#level-method', popup);
-    const list = query('#level-method-options', popup);
-    trigger.setAttribute('aria-expanded', String(open));
-    list.hidden = !open;
-    if (focus)
-      (open ? list.querySelector<HTMLElement>('[aria-selected="true"]') : trigger)?.focus({
-        preventScroll: true,
-      });
-    position();
-  }
   function position() {
-    positionPopup(popup, anchor, { width: 360 });
+    positionPopup(popup, anchor, { width: 420 });
   }
 
   function close(focus = false) {
@@ -42,7 +31,7 @@ export function createSettingsPopup({
     const state = getState(),
       settings = getCurveDisplay(state);
     for (const [id, value] of Object.entries({
-      'sample-rate': state.sampleRate,
+      'alignment-frequency': settings.alignmentHz,
       'reference-level': settings.referenceDb,
       'level-min': settings.minHz,
       'level-max': settings.maxHz,
@@ -50,16 +39,17 @@ export function createSettingsPopup({
       const el = query<HTMLInputElement | HTMLSelectElement>(`#${id}`, popup);
       if (document.activeElement !== el) el.value = String(value);
     }
-    query('#level-method .alignment-value', popup).textContent = LEVEL_METHODS[settings.method];
-    popup.querySelectorAll<HTMLElement>('[data-level-method]').forEach((option) => {
-      const selected = option.dataset.levelMethod === settings.method;
-      option.setAttribute('aria-selected', String(selected));
-      option.tabIndex = selected ? 0 : -1;
+    popup.querySelectorAll<HTMLInputElement>('input[name="sample-rate"]').forEach((option) => {
+      option.checked = +option.value === state.sampleRate;
+    });
+    popup.querySelectorAll<HTMLInputElement>('input[name="level-method"]').forEach((option) => {
+      option.checked = option.value === settings.method;
     });
     query<HTMLInputElement>('#compensated', popup).checked = settings.compensated;
     query<HTMLInputElement>('#include-preamp', popup).checked = settings.includePreamp;
     const band = settings.method.startsWith('band-');
     query('#level-range', popup).hidden = !band;
+    query('#alignment-frequency-field', popup).hidden = settings.method !== '1k';
     query<HTMLInputElement>('#reference-level', popup).disabled = settings.method === 'none';
     query('.level-explanation', popup).textContent =
       settings.method === 'band-energy'
@@ -67,7 +57,7 @@ export function createSettingsPopup({
         : settings.method === 'band-average'
           ? 'Matches the average dB response across equal octave intervals in the selected range.'
           : settings.method === '1k'
-            ? 'Aligns each curve at exactly 1 kHz. Manual offsets are applied afterward.'
+            ? `Aligns each curve at ${settings.alignmentHz} Hz. Manual offsets are applied afterward.`
             : 'Keeps the imported measurement levels. Only manual offsets are applied.';
     query('.level-readout', popup).textContent = (['target', 'source'] as const)
       .map((kind) => {
@@ -94,12 +84,41 @@ export function createSettingsPopup({
         <h2>Display settings</h2>
         <button data-close-settings aria-label="Close display settings">${icon('close')}</button>
       </div>
-      <label
-        >Sample rate<select id="sample-rate">
-          ${[44100, 48000, 96000, 192000].map((n) => `<option value="${n}">${n / 1000} kHz</option>`).join('')}
-        </select></label
-      >
-      <div id="alignment-picker-slot"></div>
+      <fieldset class="settings-choice-field">
+        <legend>Sample rate</legend>
+        <div class="settings-segments">
+          ${[44100, 48000, 96000, 192000].map((n) => `<label><input type="radio" name="sample-rate" value="${n}" /><span>${n / 1000} <small>kHz</small></span></label>`).join('')}
+        </div>
+      </fieldset>
+      <fieldset class="settings-choice-field">
+        <legend>Curve alignment</legend>
+        <div class="settings-segments alignment-segments">
+          ${Object.entries(LEVEL_METHODS)
+            .map(([id, title]) => {
+              const labels: Record<LevelMethod, string> = {
+                'band-average': 'dB average',
+                'band-energy': 'Energy',
+                '1k': 'At frequency',
+                none: 'Original',
+              };
+              return `<label title="${title}"><input type="radio" name="level-method" value="${id}" aria-label="${title}" /><span>${labels[id as LevelMethod]}</span></label>`;
+            })
+            .join('')}
+        </div>
+      </fieldset>
+      <label id="alignment-frequency-field">
+        Alignment frequency
+        <div class="unit-input">
+          <input
+            id="alignment-frequency"
+            data-adjust="alignment-frequency"
+            type="number"
+            min="20"
+            max="20000"
+            step="1"
+          />Hz
+        </div>
+      </label>
       <div id="level-range" class="settings-pair">
         <label
           >From
@@ -147,66 +166,10 @@ export function createSettingsPopup({
         Relative curve comparison, not a calibrated listening SPL. Drag values up/down or use the
         wheel; Shift for fine adjustment, Alt for 5× wheel speed.
       </p>`;
-    const alignment = document.createElement('div');
-    alignment.className = 'alignment-picker';
-    alignment.innerHTML = /* HTML */ `<span id="alignment-label" class="alignment-label"
-        >Curve alignment</span
-      ><button
-        type="button"
-        id="level-method"
-        class="alignment-trigger"
-        aria-labelledby="alignment-label alignment-value"
-        aria-haspopup="listbox"
-        aria-controls="level-method-options"
-        aria-expanded="false"
-      >
-        <span id="alignment-value" class="alignment-value"></span
-        ><span class="dropdown-chevron" aria-hidden="true"></span>
-      </button>
-      <div
-        id="level-method-options"
-        class="alignment-options"
-        role="listbox"
-        aria-labelledby="alignment-label"
-        hidden
-      >
-        ${Object.entries(LEVEL_METHODS)
-          .map(
-            ([id, title]) =>
-              `<button type="button" role="option" data-level-method="${id}" aria-selected="false" tabindex="-1"><span>${title}</span><span class="alignment-check" aria-hidden="true">${icon('check')}</span></button>`,
-          )
-          .join('')}
-      </div>`;
-    query('#alignment-picker-slot', popup).replaceWith(alignment);
-    query<HTMLButtonElement>('.alignment-trigger', alignment).addEventListener('click', () =>
-      setAlignmentOpen(Boolean(query('.alignment-options', alignment).hidden), true),
-    );
-    alignment.addEventListener('click', (event) => {
-      const option = eventElement(event).closest<HTMLElement>('[data-level-method]');
-      if (option) onAlignmentChange(option.dataset.levelMethod as LevelMethod);
-    });
-    alignment.addEventListener('keydown', (event) => {
-      const options = [...alignment.querySelectorAll<HTMLElement>('[data-level-method]')];
-      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-      event.preventDefault();
-      if (query('.alignment-options', alignment).hidden) {
-        setAlignmentOpen(true, true);
-        return;
-      }
-      const index = options.findIndex((option) => option === document.activeElement);
-      const next =
-        event.key === 'Home'
-          ? 0
-          : event.key === 'End'
-            ? options.length - 1
-            : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
-      options[next].focus({ preventScroll: true });
-    });
-    alignment.addEventListener('focusout', (event) => {
-      if (!alignment.contains(event.relatedTarget as Node)) setAlignmentOpen(false);
-    });
-    popup.addEventListener('pointerdown', (event) => {
-      if (!alignment.contains(event.target as Node)) setAlignmentOpen(false);
+    popup.addEventListener('change', (event) => {
+      const option = eventElement(event);
+      if (option instanceof HTMLInputElement && option.name === 'level-method' && option.checked)
+        onAlignmentChange(option.value as LevelMethod);
     });
     query('.settings-note', popup).insertAdjacentHTML(
       'beforebegin',
@@ -222,8 +185,7 @@ export function createSettingsPopup({
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        if (!query('#level-method-options', popup).hidden) setAlignmentOpen(false, true);
-        else close(true);
+        close(true);
       }
     });
   }

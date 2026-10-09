@@ -1,8 +1,7 @@
 /* Shared field focus treatment. Add composite field shells here, not local overrides. */
 :root :is(input, textarea, select):focus,
 :root [contenteditable='true']:focus,
-.alignment-trigger:focus-visible,
-.alignment-options button:focus-visible,
+.settings-segments input:focus-visible + span,
 .import-modes input:focus-visible + span,
 .filter-type-choice:has(input:focus-visible),
 :is(.unit-input, .preamp-value, .curve-offset > span, .curve-library-search):focus-within {

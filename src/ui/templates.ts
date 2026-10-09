@@ -111,11 +111,11 @@ export function appMarkup() {
             id="chart"
             viewBox="0 0 1200 490"
             role="img"
-            aria-label="Interactive frequency response chart. Drag a band to change frequency and gain. Double-click to add a band."
+            aria-label="Interactive frequency response chart. Drag a band to change frequency and gain. Shift-drag to select multiple bands. Ctrl or Command-click a band to add or remove it from the selection. Double-click to add a band."
           ></svg>
           <div class="graph-footer">
             <span id="graph-hint"
-              >Double-click to add · Drag band to tune · Shift + scroll to zoom · Drag graph to
+              >Double-click to add · Shift-drag to select · Shift + scroll to zoom · Drag graph to
               pan</span
             >
             <div
@@ -193,13 +193,13 @@ export function appMarkup() {
     <dialog id="modal"><div id="modal-content"></div></dialog>
     <input id="file-input" type="file" hidden />`;
 }
-export function bandCards(c: Channel, selected: number) {
+export function bandCards(c: Channel, selected: number, selection: number[] = [selected]) {
   return (
     c.filters
       .map(
         (f, i) =>
           /* HTML */ ` <div
-            class="band-card ${selected === i ? 'selected' : ''} ${!f.enabled ? 'disabled-band' : ''}"
+            class="band-card ${selection.includes(i) ? 'selected' : ''} ${!f.enabled ? 'disabled-band' : ''}"
             data-band-card="${i}"
             style="--band:${bandColor(i)}"
           >
@@ -212,7 +212,12 @@ export function bandCards(c: Channel, selected: number) {
               ${icon(f.type)}<span
                 >${f.enabled ? String(i + 1).padStart(2, '0') : 'OFF'}</span
               ></button
-            ><button class="band-detail" data-band="${i}" aria-label="Edit band ${i + 1}">
+            ><button
+              class="band-detail"
+              data-band="${i}"
+              aria-label="Edit band ${i + 1}"
+              title="Click to edit · Ctrl/Cmd-click to add or remove · Shift-click to select a range"
+            >
               <span
                 data-adjust="frequency"
                 data-band-index="${i}"
@@ -258,9 +263,49 @@ export function bandCards(c: Channel, selected: number) {
     </button>`
   );
 }
-export function bandEditor(f: Filter | undefined, selected: number) {
+export function bandEditor(f: Filter | undefined, selected: number, selection: Filter[] = []) {
+  if (selection.length > 1)
+    return /* HTML */ `<div class="band-group-editor">
+      <div class="band-group-heading">
+        <strong>${selection.length} bands selected</strong>
+        <div class="band-group-switches">
+          <button data-band-group="enable" aria-pressed="${selection.every((f) => f.enabled)}">
+            Enable all
+          </button>
+          <button data-band-group="disable" aria-pressed="${selection.every((f) => !f.enabled)}">
+            Disable all
+          </button>
+        </div>
+        ${ib('close-band', 'chevron-up', 'Clear band selection')}
+      </div>
+      <div class="band-group-fields">
+        ${(
+          [
+            ['fcHz', 'Frequency', '2%'],
+            ['gainDb', 'Gain', '0.1 dB'],
+            ['q', 'Q', '5%'],
+          ] as const
+        )
+          .map(
+            ([
+              parameter,
+              label,
+              step,
+            ]) => `<div class="band-group-parameter"><span>${label} change</span><div>
+      <button data-band-group="adjust" data-parameter="${parameter}" data-direction="-1" aria-label="Decrease selected bands ${label}" title="Decrease ${label} by ${step} · Shift: fine · Alt: 5×">${icon('minus')}</button>
+      <div class="unit-input"><input type="number" data-adjust="group-${parameter === 'fcHz' ? 'frequency' : parameter === 'gainDb' ? 'gain' : 'q'}" aria-label="Selected bands ${label} change" title="Relative change for all selected bands. Drag or scroll; type a change and press Enter to apply. Returns to zero afterward." value="0" step="${parameter === 'fcHz' ? '2' : parameter === 'q' ? '5' : '0.1'}" ${parameter === 'gainDb' && selection.every((f) => ['LP', 'HP'].includes(f.type)) ? 'disabled' : ''} />${parameter === 'gainDb' ? 'dB' : '%'}</div>
+      <button data-band-group="adjust" data-parameter="${parameter}" data-direction="1" aria-label="Increase selected bands ${label}" title="Increase ${label} by ${step} · Shift: fine · Alt: 5×">${icon('plus')}</button>
+    </div></div>`,
+          )
+          .join('')}
+      </div>
+      <p>
+        Drag or scroll to adjust · Enter applies typed changes · Returns to 0 after applying ·
+        Shift: fine · Alt: 5× scroll
+      </p>
+    </div>`;
   return !f
-    ? '<div class="editor-empty">Select a band to edit its frequency, gain, and Q.</div>'
+    ? '<div class="editor-empty">Select a band to edit · Shift-drag on the graph to select multiple bands.</div>'
     : /* HTML */ ` <div class="detail-panel">
         <span class="detail-number" style="color:${bandColor(selected)}"
           >BAND ${String(selected + 1).padStart(2, '0')}</span

@@ -45,6 +45,7 @@ export type LevelMethod = 'band-energy' | 'band-average' | '1k' | 'none';
 export interface CurveAlignment {
   method: LevelMethod;
   referenceDb: number;
+  alignmentHz: number;
   minHz: number;
   maxHz: number;
   targetOffsetDb: number;

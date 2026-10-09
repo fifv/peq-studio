@@ -64,9 +64,9 @@ export function installNumericControls<T extends NumericSpec>({
   }
   document.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
+    finishWheel();
     const spec = resolve(event.target);
     if (!spec) return;
-    finishWheel();
     const slider =
       spec.element instanceof HTMLInputElement && spec.element.type === 'range'
         ? spec.element

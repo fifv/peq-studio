@@ -100,6 +100,32 @@ test('manual offsets apply independently after alignment and in original-level m
   near(80 + curveShift(flat(80), 'source', settings), -4);
   near(curveShift(flat(80), 'source', { ...settings, method: 'none' }), -4);
 });
+test('frequency alignment uses the chosen frequency and preserves manual offsets', () => {
+  const curve: Pick<MeasuredCurve, 'points'> = {
+    points: [
+      [100, 0],
+      [10000, 20],
+    ],
+  };
+  const settings = {
+    ...defaultCurveDisplay(),
+    method: '1k' as const,
+    alignmentHz: 100,
+    referenceDb: 3,
+    sourceOffsetDb: -2,
+  };
+  near(curveReferenceLevel(curve, settings), 0);
+  near(curveShift(curve, 'source', settings), 1);
+  settings.alignmentHz = 10000;
+  near(curveReferenceLevel(curve, settings), 20);
+  near(curveShift(curve, 'source', settings), -19);
+  settings.alignmentHz = 1000;
+  near(curveReferenceLevel(curve, settings), 10);
+  assert.equal(normalizeCurveDisplay({ method: '1k' }).alignmentHz, 1000);
+  assert.equal(normalizeCurveDisplay({ alignmentHz: NaN }).alignmentHz, 1000);
+  assert.equal(normalizeCurveDisplay({ alignmentHz: 0 }).alignmentHz, 20);
+  assert.equal(normalizeCurveDisplay({ alignmentHz: 30000 }).alignmentHz, 20000);
+});
 test('curve display settings persist and old backups migrate safely', () => {
   const state = initialState();
   assert.equal(state.presets[0].curveAlignment.method, 'band-average');

@@ -52,7 +52,9 @@ export function installBandRail() {
   rail.addEventListener('pointerdown', (event) => {
     if (
       event.target instanceof Element &&
-      event.target.closest('[data-band-reorder], [data-duplicate-band], [data-remove]')
+      event.target.closest(
+        '[data-band-reorder], [data-duplicate-band], [data-remove], [data-toggle]',
+      )
     )
       return;
     if (event.button !== 0 || panel.classList.contains('expanded')) return;

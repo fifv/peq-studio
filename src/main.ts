@@ -45,6 +45,10 @@ import { getCurveDisplay } from './curve-level.ts';
 import { installChartResize } from './ui/chart-resize.ts';
 import { appMarkup, bandCards, bandEditor, presetList, channelButtons } from './ui/templates.ts';
 import { icon } from './ui/icons.ts';
+import { stepBands, bandRange, type BandParameter } from './band-selection.ts';
+import { wheelSteps } from './numeric-controls.ts';
+import { installPressSlide } from './ui/press-slide.ts';
+import { installBandCardSelection } from './ui/band-card-selection.ts';
 import { renderToggle } from './ui/toggle.ts';
 
 const KEY = 'peq-studio.workspace.v1';
@@ -59,6 +63,8 @@ try {
 }
 let channel: ChannelName = 'left',
   selected = -1;
+const multiSelection = new Set<Filter>();
+let selectionAnchor: Filter | null = null;
 const curveRequests = { target: 0, source: 0 };
 const layers: Layers = { target: true, source: true, bands: false, combined: true, filtered: true };
 const workspaceHistory = new WorkspaceHistory();
@@ -67,6 +73,42 @@ let hasHistoryToast = false;
 
 const preset = () => activePreset(state);
 const current = () => preset()[preset().linked ? 'left' : channel];
+function selectedBands() {
+  if (selected < 0) multiSelection.clear();
+  const filters = current().filters;
+  for (const filter of multiSelection) if (!filters.includes(filter)) multiSelection.delete(filter);
+  return multiSelection.size
+    ? filters.flatMap((filter, i) => (multiSelection.has(filter) ? [i] : []))
+    : selected >= 0
+      ? [selected]
+      : [];
+}
+function selectBands(indices: number[], keepAnchor = false) {
+  multiSelection.clear();
+  for (const index of indices)
+    if (current().filters[index]) multiSelection.add(current().filters[index]);
+  selected = indices.find((index) => !!current().filters[index]) ?? -1;
+  if (!keepAnchor) selectionAnchor = current().filters[selected] ?? null;
+  renderBandEditor();
+  editorControls.refresh();
+}
+function selectBand(index: number, toggle = false, range = false) {
+  const previous = selectedBands();
+  const anchor = selected < 0 || !selectionAnchor ? -1 : current().filters.indexOf(selectionAnchor);
+  if (range && anchor >= 0) {
+    const indices = bandRange(anchor, index);
+    selectBands(toggle ? [...new Set([...previous, ...indices])] : indices, true);
+    return;
+  }
+  selectBands(
+    toggle
+      ? previous.includes(index)
+        ? previous.filter((i) => i !== index)
+        : [...previous, index]
+      : [index],
+  );
+  selectionAnchor = current().filters[index] ?? null;
+}
 function save() {
   syncBackend();
   try {
@@ -385,7 +427,7 @@ function render() {
   $<HTMLInputElement>('#preamp-range').max = String(Math.max(12, c.preampDb));
   $<HTMLInputElement>('#preamp-range').value = String(c.preampDb);
   $('#band-count').textContent = String(c.filters.length);
-  $('#bands').innerHTML = bandCards(c, selected);
+  $('#bands').innerHTML = bandCards(c, selected, selectedBands());
   renderBandEditor();
   chartResize.update();
   chart.draw();
@@ -394,23 +436,27 @@ function render() {
 }
 function renderBandEditor() {
   const f = current().filters[selected];
-  $('#band-editor').innerHTML = bandEditor(f, selected);
+  $('#band-editor').innerHTML = bandEditor(
+    f,
+    selected,
+    selectedBands().map((i) => current().filters[i]),
+  );
 }
 
+let graphWheelGroup: symbol | undefined;
+let graphWheelTimer: ReturnType<typeof setTimeout> | undefined;
 const chart = createChart({
   getState: () => state,
   getChannel: current,
   getSelected: () => selected,
+  getSelection: selectedBands,
+  onSelectMany: selectBands,
   getLayers: () => layers,
   onViewChange: (window) => {
     Object.assign(state.chartView, window);
     save();
   },
-  onSelect: (index) => {
-    selected = index;
-    renderBandEditor();
-    editorControls.refresh();
-  },
+  onSelect: selectBand,
   onBegin: snapshot,
   onChange: () => {
     syncLinked();
@@ -423,8 +469,26 @@ const chart = createChart({
   },
   onAdd: addBand,
   onCommit: (index, mutate) => {
+    multiSelection.clear();
     selected = index;
     commit(() => mutate(current().filters[index]));
+  },
+  onAdjustQ: (indices, event) => {
+    if (indices.length === 1 && !selectedBands().includes(indices[0])) selectBand(indices[0]);
+    graphWheelGroup ??= Symbol('graph-q-wheel');
+    commit(
+      () =>
+        stepBands(
+          indices.map((i) => current().filters[i]),
+          'q',
+          wheelSteps(event),
+        ),
+      graphWheelGroup,
+    );
+    clearTimeout(graphWheelTimer);
+    graphWheelTimer = setTimeout(() => {
+      graphWheelGroup = undefined;
+    }, 300);
   },
 });
 const chartResize = installChartResize({
@@ -435,6 +499,7 @@ const chartResize = installChartResize({
   onEnd: save,
 });
 function addBand(hz = 1000, db = 0) {
+  multiSelection.clear();
   commit(() => {
     current().filters.push(newBand(Math.round(hz), +db.toFixed(1)));
     selected = current().filters.length - 1;
@@ -629,7 +694,55 @@ const actions: Record<string, () => void | Promise<void>> = {
     autoEqPopup.toggle();
   },
 };
+function isBandBackground(event: Event) {
+  const target = eventElement(event);
+  return target.matches('.band-panel, #bands, #band-editor, .editor-empty');
+}
+document.addEventListener('dblclick', (event) => {
+  if (isBandBackground(event) && eventElement(event).closest('.band-panel')) addBand();
+});
 document.addEventListener('click', (event) => {
+  if (isBandBackground(event)) {
+    selectBands([]);
+    chart.draw();
+    return;
+  }
+  const group = eventElement(event).closest<HTMLButtonElement>('[data-band-group]');
+  if (group) {
+    const filters = selectedBands().map((i) => current().filters[i]);
+    if (filters.length < 2) return;
+    const action = group.dataset.bandGroup;
+    if (action !== 'adjust' && filters.every((filter) => filter.enabled === (action === 'enable')))
+      return;
+    const parameter = group.dataset.parameter as BandParameter;
+    const direction = group.dataset.direction;
+    commit(() => {
+      if (action === 'adjust')
+        stepBands(
+          filters,
+          parameter,
+          Number(direction) * (event.shiftKey ? 0.1 : 1) * (event.altKey ? 5 : 1),
+        );
+      else for (const filter of filters) filter.enabled = action === 'enable';
+    });
+    const replacement = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-band-group]'),
+    ).find(
+      (button) =>
+        button.dataset.bandGroup === action &&
+        button.dataset.parameter === parameter &&
+        button.dataset.direction === direction,
+    );
+    if (replacement && !replacement.disabled) replacement.focus({ preventScroll: true });
+    undoToast(
+      action === 'adjust'
+        ? 'Selected bands adjusted.'
+        : action === 'enable'
+          ? 'Selected bands enabled.'
+          : 'Selected bands disabled.',
+    );
+    return;
+  }
   const removePreset = eventElement(event).closest<HTMLElement>('[data-delete-preset]');
   if (removePreset) return deletePreset(removePreset.dataset.deletePreset!);
   const copyPreset = eventElement(event).closest<HTMLElement>('[data-copy-preset]');
@@ -659,7 +772,7 @@ document.addEventListener('click', (event) => {
   }
   const band = eventElement(event).closest<HTMLElement>('[data-band]');
   if (band) {
-    selected = +band.dataset.band!;
+    selectBand(+band.dataset.band!, event.ctrlKey || event.metaKey, event.shiftKey);
     // Keep card nodes in place so multi-click and hover gestures remain intact.
     renderBandEditor();
     editorControls.refresh();
@@ -684,6 +797,7 @@ document.addEventListener('click', (event) => {
   }
   const duplicate = eventElement(event).closest<HTMLElement>('[data-duplicate-band]');
   if (duplicate) {
+    multiSelection.clear();
     commit(() => {
       selected = duplicateBand(current(), Number(duplicate.dataset.duplicateBand));
     });
@@ -751,7 +865,9 @@ const editorControls = createEditorControls({
   getState: () => state,
   getChannel: current,
   getSelected: () => selected,
+  getSelection: selectedBands,
   onSelect: (index) => {
+    multiSelection.clear();
     selected = index;
     renderBandEditor();
   },
@@ -786,7 +902,7 @@ document.addEventListener('change', (event) => {
       preventScroll: true,
     });
   }
-  if (el.id === 'sample-rate') {
+  if (el.name === 'sample-rate' && el.checked) {
     commit(() => {
       state.sampleRate = +el.value;
     });
@@ -822,8 +938,59 @@ document.addEventListener('keydown', (event) => {
   }
 });
 render();
+// Reveal only within the preset list; never move the page or animate on startup.
+requestAnimationFrame(() => {
+  const list = $('#presets');
+  const active = list.querySelector<HTMLElement>('.preset-row.active');
+  if (!active) return;
+  const bounds = list.getBoundingClientRect(),
+    row = active.getBoundingClientRect();
+  const dy = row.top < bounds.top ? row.top - bounds.top : Math.max(0, row.bottom - bounds.bottom);
+  const dx =
+    row.left < bounds.left ? row.left - bounds.left : Math.max(0, row.right - bounds.right);
+  list.scrollTo({ top: list.scrollTop + dy, left: list.scrollLeft + dx, behavior: 'instant' });
+});
 syncBackend();
+installBandCardSelection($('.editor'), (index, toggle, range, rangeStart) => {
+  if (rangeStart !== undefined) {
+    selectionAnchor = current().filters[rangeStart] ?? null;
+    selectBands(bandRange(rangeStart, index), true);
+  } else selectBand(index, toggle, range);
+  renderBandEditor();
+  editorControls.refresh();
+  chart.draw();
+});
 installBandRail();
+let paintedEnabled = true;
+installPressSlide(
+  $('#bands'),
+  '[data-toggle]',
+  (button) => button.dataset.toggle!,
+  (button, group, first) => {
+    const filter = current().filters[Number(button.dataset.toggle)];
+    if (!filter) return;
+    if (first) paintedEnabled = !filter.enabled;
+    if (filter.enabled !== paintedEnabled)
+      commit(() => {
+        filter.enabled = paintedEnabled;
+      }, group);
+  },
+);
+installPressSlide(
+  $('#band-editor'),
+  '[data-band-group="enable"], [data-band-group="disable"]',
+  (button) => button.dataset.bandGroup!,
+  (button, group) => {
+    const filters = selectedBands().map((i) => current().filters[i]);
+    const enabled = button.dataset.bandGroup === 'enable';
+    if (filters.some((filter) => filter.enabled !== enabled))
+      commit(() => {
+        filters.forEach((filter) => {
+          filter.enabled = enabled;
+        });
+      }, group);
+  },
+);
 installBandReordering($('#bands'), (from, to) => {
   commit(() => {
     selected = moveBand(current(), from, to, selected);

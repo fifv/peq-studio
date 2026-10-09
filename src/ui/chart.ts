@@ -8,7 +8,7 @@ import { interpolate } from '../curve-math.ts';
 import { getTransferFunction, calculateFilterResponseDb } from '../response.ts';
 import { hoverMarkup } from '../chart-hover.ts';
 import { getCurveDisplay } from '../curve-level.ts';
-import { adjustedWheelValue, qAdjustment } from '../numeric-controls.ts';
+import { adjustBands, pointsInRectangle } from '../band-selection.ts';
 import {
   defaultChartView,
   frequencyAt,
@@ -21,27 +21,33 @@ interface ChartOptions {
   getState: () => Workspace;
   getChannel: () => Channel;
   getSelected: () => number;
+  getSelection: () => number[];
   getLayers: () => Layers;
   onViewChange: (window: FrequencyWindow) => void;
-  onSelect: (index: number) => void;
+  onSelect: (index: number, toggle?: boolean, range?: boolean) => void;
+  onSelectMany: (indices: number[]) => void;
   onBegin: () => void;
   onChange: () => void;
   onEnd: () => void;
   onAdd: (_hz: number, db: number) => void;
   onCommit: (index: number, mutate: (filter: Filter) => void) => void;
+  onAdjustQ: (indices: number[], event: WheelEvent) => void;
 }
 export function createChart({
   getState,
   getChannel: current,
   getSelected,
+  getSelection,
   getLayers,
   onViewChange,
   onSelect,
+  onSelectMany,
   onBegin,
   onChange,
   onEnd,
   onAdd,
   onCommit,
+  onAdjustQ,
 }: ChartOptions) {
   const bounds = { l: 54, r: 1175, t: 12, b: 447 };
   const xOf = (hz: number) =>
@@ -81,6 +87,7 @@ export function createChart({
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     const state = getState(),
       selected = getSelected(),
+      selection = getSelection(),
       layers = getLayers();
     const c = current();
     const targetItem = findCurve(state, 'target'),
@@ -214,11 +221,12 @@ export function createChart({
         d="${curve((hz, i) => filteredValue(hz, combined[i], c.preampDb, true))}"
       />`;
     c.filters.forEach((f, i) => {
-      if (f.enabled && inView(f.fcHz))
+      if ((f.enabled || selection.includes(i)) && inView(f.fcHz))
         html += /* HTML */ `<g
           data-point="${i}"
           class="control-point"
           role="button"
+          aria-pressed="${selection.includes(i)}"
           tabindex="0"
           aria-label="Band ${i + 1}: ${Math.round(f.fcHz)} Hz, ${signed(f.gainDb)} dB. Arrow keys adjust; Shift makes larger steps."
           ><circle cx="${xOf(f.fcHz)}" cy="${yOf(f.gainDb)}" r="17" fill="transparent" /><circle
@@ -235,11 +243,11 @@ export function createChart({
             class="point-dot"
             cx="${xOf(f.fcHz)}"
             cy="${yOf(f.gainDb)}"
-            r="${i === selected ? 7 : 5.5}"
-            fill="${bandColor(i)}"
+            r="${selection.includes(i) ? 7 : 5.5}"
+            fill="${f.enabled ? bandColor(i) : '#101827'}"
             stroke="#f8fafc"
             stroke-width="2"
-          />${i === selected ? /* HTML */ `<circle cx="${xOf(f.fcHz)}" cy="${yOf(f.gainDb)}" r="12" stroke="${bandColor(i)}" stroke-opacity=".45" fill="none" />` : ''}</g
+          />${selection.includes(i) ? /* HTML */ `<circle cx="${xOf(f.fcHz)}" cy="${yOf(f.gainDb)}" r="12" stroke="${bandColor(i)}" stroke-opacity=".65" fill="none" />` : ''}</g
         >`;
     });
     html += '</g>';
@@ -271,8 +279,10 @@ export function createChart({
       return readings;
     };
     $<SVGSVGElement>('#chart').innerHTML =
-      html + '<g id="chart-hover" aria-hidden="true" pointer-events="none"></g>';
+      html +
+      '<g id="chart-hover" aria-hidden="true" pointer-events="none"></g><g id="band-selection-box" aria-hidden="true" pointer-events="none"></g>';
     drawHover();
+    drawSelectionBox();
     const peak = Math.max(...FREQUENCIES.map(combinedAt));
     $('#peak-status').textContent =
       peak > 0.05 ? `Peak ${signed(peak)} dB · consider Safe gain` : `Peak ${signed(peak)} dB`;
@@ -306,8 +316,28 @@ export function createChart({
     hoverPoint = null;
     draw();
   }).observe(svg);
-  let drag: { id: number; index: number } | null = null;
+  let drag: {
+    id: number;
+    index: number;
+    start: Point;
+    originals: { index: number; filter: Filter }[];
+    moved: boolean;
+  } | null = null;
   let panDrag: { id: number; x: number; view: FrequencyWindow; moved: boolean } | null = null;
+  let boxDrag: {
+    id: number;
+    start: Point;
+    end: Point;
+    additive: boolean;
+    previous: number[];
+  } | null = null;
+  function drawSelectionBox() {
+    const overlay = document.querySelector('#band-selection-box');
+    if (!overlay) return;
+    overlay.innerHTML = boxDrag
+      ? `<rect class="band-selection-rectangle" x="${Math.min(boxDrag.start.x, boxDrag.end.x)}" y="${Math.min(boxDrag.start.y, boxDrag.end.y)}" width="${Math.abs(boxDrag.end.x - boxDrag.start.x)}" height="${Math.abs(boxDrag.end.y - boxDrag.start.y)}"/>`
+      : '';
+  }
   let lastPan = 0;
   function setWindow(window: FrequencyWindow) {
     onViewChange(window);
@@ -322,7 +352,7 @@ export function createChart({
       ? event.target.closest<SVGGElement>('[data-point]')?.dataset.point
       : undefined;
   svg.addEventListener('dblclick', (event) => {
-    if (pointIndex(event) !== undefined || Date.now() - lastPan < 300) return;
+    if (event.shiftKey || pointIndex(event) !== undefined || Date.now() - lastPan < 300) return;
     const p = position(event);
     if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) return;
     const v = values(p);
@@ -331,35 +361,69 @@ export function createChart({
   svg.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     const index = pointIndex(event);
+    if (event.shiftKey && index === undefined) {
+      const p = position(event);
+      if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) return;
+      event.preventDefault();
+      clearHover();
+      boxDrag = {
+        id: event.pointerId,
+        start: p,
+        end: p,
+        additive: event.ctrlKey || event.metaKey,
+        previous: getSelection(),
+      };
+      svg.classList.add('selecting-bands');
+      svg.setPointerCapture(event.pointerId);
+      drawSelectionBox();
+      return;
+    }
     if (index === undefined) {
       const p = position(event);
-      if (
-        p.x < bounds.l ||
-        p.x > bounds.r ||
-        p.y < bounds.t ||
-        p.y > bounds.b ||
-        !svg.classList.contains('zoomed')
-      )
+      if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) {
+        onSelectMany([]);
+        draw();
         return;
+      }
       event.preventDefault();
       panDrag = { id: event.pointerId, x: p.x, view: { ...getState().chartView }, moved: false };
       svg.setPointerCapture(event.pointerId);
       return;
     }
     event.preventDefault();
-    onSelect(+index);
-    onBegin();
-    drag = { id: event.pointerId, index: +index };
+    if (event.ctrlKey || event.metaKey || event.shiftKey) {
+      onSelect(+index, event.ctrlKey || event.metaKey, event.shiftKey);
+      draw();
+      return;
+    }
+    if (!getSelection().includes(+index)) onSelect(+index);
+    drag = {
+      id: event.pointerId,
+      index: +index,
+      start: position(event),
+      moved: false,
+      originals: getSelection().map((index) => ({
+        index,
+        filter: { ...current().filters[index] },
+      })),
+    };
     svg.setPointerCapture(event.pointerId);
     draw();
   });
   svg.addEventListener('pointermove', (event) => {
     const p = position(event);
+    if (boxDrag?.id === event.pointerId) {
+      boxDrag.end = { x: clamp(p.x, bounds.l, bounds.r), y: clamp(p.y, bounds.t, bounds.b) };
+      drawSelectionBox();
+      return;
+    }
     if (panDrag?.id === event.pointerId) {
       if (Math.abs(p.x - panDrag.x) > 4) panDrag.moved = true;
       if (panDrag.moved) {
-        svg.classList.add('panning');
-        setWindow(panFrequency(panDrag.view, (panDrag.x - p.x) / (bounds.r - bounds.l)));
+        if (svg.classList.contains('zoomed')) {
+          svg.classList.add('panning');
+          setWindow(panFrequency(panDrag.view, (panDrag.x - p.x) / (bounds.r - bounds.l)));
+        }
       }
       return;
     }
@@ -372,10 +436,25 @@ export function createChart({
         ? p
         : null;
     if (drag && drag.id === event.pointerId) {
+      if (!drag.moved) {
+        if (Math.hypot(p.x - drag.start.x, p.y - drag.start.y) < 3) return;
+        drag.moved = true;
+        onBegin();
+      }
       const value = values(p),
         filter = current().filters[drag.index];
-      filter.fcHz = Math.round(value.hz);
-      if (!['LP', 'HP'].includes(filter.type)) filter.gainDb = +value.db.toFixed(1);
+      if (drag.originals.length > 1) {
+        const start = values(drag.start);
+        const copies = drag.originals.map(({ filter }) => ({ ...filter }));
+        adjustBands(copies, 'fcHz', value.hz / start.hz);
+        adjustBands(copies, 'gainDb', +(value.db - start.db).toFixed(1));
+        drag.originals.forEach(({ index }, i) =>
+          Object.assign(current().filters[index], copies[i]),
+        );
+      } else {
+        filter.fcHz = Math.round(value.hz);
+        if (!['LP', 'HP'].includes(filter.type)) filter.gainDb = +value.db.toFixed(1);
+      }
       onChange();
       draw();
     } else if (!hoverFrame)
@@ -385,26 +464,75 @@ export function createChart({
       });
   });
   function endDrag(event: PointerEvent) {
+    if (boxDrag?.id === event.pointerId) {
+      const box = boxDrag;
+      boxDrag = null;
+      svg.classList.remove('selecting-bands');
+      lastPan = Date.now();
+      if (event.type === 'pointerup') {
+        const points = current().filters.flatMap((filter, index) => {
+          const point = { x: xOf(filter.fcHz), y: yOf(filter.gainDb) };
+          return (filter.enabled || box.previous.includes(index)) &&
+            point.x >= bounds.l &&
+            point.x <= bounds.r &&
+            point.y >= bounds.t &&
+            point.y <= bounds.b
+            ? [{ index, point }]
+            : [];
+        });
+        const indices = pointsInRectangle(points, box.start, box.end);
+        onSelectMany(box.additive ? [...new Set([...box.previous, ...indices])] : indices);
+      }
+      draw();
+    }
     if (panDrag?.id === event.pointerId) {
       if (panDrag.moved) lastPan = Date.now();
+      else if (event.type === 'pointerup') {
+        onSelectMany([]);
+        draw();
+      }
       if (event.type === 'pointercancel') setWindow(panDrag.view);
       panDrag = null;
       svg.classList.remove('panning');
     }
+    if (drag?.id === event.pointerId) {
+      const ended = drag;
+      drag = null;
+      if (ended.moved) onEnd();
+      else if (event.type === 'pointerup') {
+        onSelect(ended.index);
+        draw();
+      }
+    }
     if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
-    if (!drag) return;
-    drag = null;
-    onEnd();
   }
   svg.addEventListener('pointerup', endDrag);
   svg.addEventListener('pointercancel', endDrag);
   svg.addEventListener('lostpointercapture', endDrag);
   svg.addEventListener('pointerleave', clearHover);
-  window.addEventListener('blur', clearHover);
+  function cancelSelection() {
+    if (!boxDrag) return;
+    const id = boxDrag.id;
+    boxDrag = null;
+    svg.classList.remove('selecting-bands');
+    if (svg.hasPointerCapture(id)) svg.releasePointerCapture(id);
+    drawSelectionBox();
+  }
+  window.addEventListener('blur', () => {
+    clearHover();
+    cancelSelection();
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') cancelSelection();
+  });
   svg.addEventListener(
     'wheel',
     (event) => {
       const index = pointIndex(event);
+      if (boxDrag) {
+        event.preventDefault();
+        return;
+      }
       if (index === undefined && event.shiftKey && !drag && !panDrag) {
         const p = position(event);
         if (p.x < bounds.l || p.x > bounds.r || p.y < bounds.t || p.y > bounds.b) return;
@@ -413,11 +541,22 @@ export function createChart({
         zoom(delta < 0 ? 1.25 : 0.8, (p.x - bounds.l) / (bounds.r - bounds.l));
         return;
       }
-      if (index === undefined || event.deltaY === 0) return;
+      const p = position(event);
+      if (
+        drag ||
+        panDrag ||
+        event.deltaY === 0 ||
+        p.x < bounds.l ||
+        p.x > bounds.r ||
+        p.y < bounds.t ||
+        p.y > bounds.b
+      )
+        return;
+      const selection = getSelection();
+      const indices = index !== undefined && !selection.includes(+index) ? [+index] : selection;
+      if (!indices.length) return;
       event.preventDefault();
-      onCommit(+index, (filter) => {
-        filter.q = adjustedWheelValue(filter.q, event, qAdjustment);
-      });
+      onAdjustQ(indices, event);
     },
     { passive: false },
   );

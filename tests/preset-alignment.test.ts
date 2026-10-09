@@ -25,6 +25,7 @@ test('legacy global offsets and alignment migrate independently into every prese
   const migrated = validateState(legacy);
   assert.deepEqual(migrated.presets[0].curveAlignment, migrated.presets[1].curveAlignment);
   assert.equal(getCurveDisplay(migrated).sourceOffsetDb, -3);
+  assert.equal(getCurveDisplay(migrated).alignmentHz, 1000);
   migrated.presets[0].curveAlignment.sourceOffsetDb = 5;
   assert.equal(migrated.presets[1].curveAlignment.sourceOffsetDb, -3);
   legacy.presets[1].curveAlignment = defaultCurveAlignment();
@@ -34,6 +35,7 @@ test('preset alignment follows switching, reload, duplication, JSON export, and 
   let state = initialState();
   const first = state.presets[0];
   first.curveAlignment = {
+    alignmentHz: 750,
     method: 'band-energy',
     minHz: 300,
     maxHz: 8000,
@@ -47,8 +49,11 @@ test('preset alignment follows switching, reload, duplication, JSON export, and 
   state = validateState(JSON.parse(JSON.stringify(state)));
   state.activeId = first.id;
   assert.equal(getCurveDisplay(state).sourceOffsetDb, -4);
+  assert.equal(getCurveDisplay(state).alignmentHz, 750);
   const copy = structuredClone(first);
   copy.curveAlignment.sourceOffsetDb = 7;
+  copy.curveAlignment.alignmentHz = 500;
+  assert.equal(first.curveAlignment.alignmentHz, 750);
   assert.equal(first.curveAlignment.sourceOffsetDb, -4);
   assert.deepEqual(
     importPreset(exportPreset(first), 'Imported').curveAlignment,
@@ -58,7 +63,9 @@ test('preset alignment follows switching, reload, duplication, JSON export, and 
   const history = new WorkspaceHistory();
   history.capture(state);
   state.presets[0].curveAlignment.method = 'none';
+  state.presets[0].curveAlignment.alignmentHz = 2000;
   const undone = history.restore(state, true)!;
   assert.equal(getCurveDisplay(undone).method, 'band-energy');
+  assert.equal(getCurveDisplay(undone).alignmentHz, 750);
   assert.equal(getCurveDisplay(history.restore(undone, false)!).method, 'none');
 });
