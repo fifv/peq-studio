@@ -14,6 +14,7 @@ export function installCurveSlide(
     y: number;
     selected: string;
     collection: boolean;
+    group: symbol;
   } | null = null;
   let frame = 0;
   let suppressClick = false;
@@ -81,6 +82,7 @@ export function installCurveSlide(
         y: event.clientY,
         selected: '',
         collection: !!tab,
+        group: Symbol('curve-slide'),
       };
       // Selection redraws rows; capture on the stable popup instead of the button.
       root.setPointerCapture(event.pointerId);
@@ -117,6 +119,9 @@ export function installCurveSlide(
     { ...options, capture: true },
   );
   return {
+    get group() {
+      return drag?.group;
+    },
     get active() {
       return drag !== null;
     },

@@ -39,7 +39,7 @@
   position: fixed;
   z-index: 50;
   border: 1px solid #3d526f;
-  background: #141f30;
+  background: var(--menu-background);
   border-radius: 12px;
   padding: 8px;
   box-shadow: 0 18px 50px #03081280;
@@ -88,10 +88,12 @@
   padding: 0 5px 0 10px;
   flex-shrink: 0;
 }
-.curve-library-search > span {
+.curve-library-search > svg {
   color: #91a6c2;
-  font-size: 21px;
-  line-height: 1;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: block;
 }
 .curve-library-search input {
   flex: 1;
@@ -137,7 +139,7 @@
   background: #1b2a41;
 }
 .curve-library-row.selected {
-  background: #20375a;
+  background: rgb(32 55 90 / 65%);
   border-color: #385a8b;
 }
 .curve-reorder {
@@ -211,6 +213,19 @@
   color: #8498b5;
   margin-right: 3px;
   flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.curve-library-row:hover > .curve-delete,
+.curve-delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .curve-library-row.selected > .curve-delete {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 .curve-delete:hover {
   background: #4b2839;

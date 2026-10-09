@@ -14,6 +14,7 @@
   --line: #242d3e;
   --blue: #347df7;
   --panel: #111824;
+  --menu-background: rgb(21 32 49 / 78%);
   --input-focus-border: #4d7dbd;
 }
 * {
@@ -81,6 +82,11 @@ button svg {
   width: 17px;
   height: 17px;
   flex-shrink: 0;
+}
+.ui-icon {
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 input,
 select,

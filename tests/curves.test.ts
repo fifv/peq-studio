@@ -276,3 +276,32 @@ test('either selector can load either built-in collection and restore crossed se
   );
   assert.equal(restored.curves.length, 0);
 });
+
+test('visible headphone preloads share an in-flight request with selection and then use cache', async () => {
+  const source = BUILTIN_SOURCES[2];
+  let complete!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  let requests = 0;
+  const fetcher = async () => {
+    requests++;
+    await ready;
+    return {
+      ok: true,
+      json: async () => ({
+        points: [
+          [20, 0],
+          [20000, 0],
+        ],
+      }),
+    };
+  };
+  const preload = loadBuiltinCurve('source', source.id, fetcher);
+  const selection = loadBuiltinCurve('target', source.id, fetcher);
+  assert.equal(requests, 1);
+  complete();
+  assert.equal(await preload, await selection);
+  assert.equal(await loadBuiltinCurve('source', source.id, fetcher), await preload);
+  assert.equal(requests, 1);
+});

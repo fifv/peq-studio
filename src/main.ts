@@ -77,12 +77,12 @@ function save() {
     toast('Storage full · export a backup');
   }
 }
-function snapshot() {
+function snapshot(group?: symbol) {
   dismissHistoryToast();
-  workspaceHistory.capture(state);
+  workspaceHistory.capture(state, group);
 }
-function commit(fn: () => void) {
-  snapshot();
+function commit(fn: () => void, group?: symbol) {
+  snapshot(group);
   fn();
   syncLinked();
   save();
@@ -170,14 +170,14 @@ const curvePickers = curveRoles.map((kind) =>
     root: $(`#${kind}-picker`),
     kind,
     getState: () => state,
-    onSelect: async (id) => {
+    onSelect: async (id, group) => {
       const request = ++curveRequests[kind];
       const owner = preset();
       await loadBuiltinCurve(kind, id);
-      if (request === curveRequests[kind] && owner === preset())
+      if (request === curveRequests[kind] && owner === preset() && owner[`${kind}Id`] !== id)
         commit(() => {
           owner[`${kind}Id`] = id;
-        });
+        }, group);
     },
     onDelete: (id) => {
       commit(() => removeCustomCurve(state, id));

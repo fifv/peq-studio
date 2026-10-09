@@ -125,6 +125,8 @@ test('curve slide selects on press and across rows, avoids duplicates, and relea
     selected: string[] = [];
   const slide = installCurveSlide(ui.root as unknown as HTMLElement, (id) => selected.push(id));
   ui.fire('pointerdown', ui.rows[0].choice);
+  const group = slide.group;
+  assert.equal(typeof group, 'symbol');
   assert.deepEqual(selected, ['a']);
   assert.equal(ui.root.hasPointerCapture(1), true);
   ui.hit(ui.rows[1].choice);
@@ -133,13 +135,18 @@ test('curve slide selects on press and across rows, avoids duplicates, and relea
   ui.hit(ui.rows[2].choice);
   ui.fire('pointermove');
   assert.deepEqual(selected, ['a', 'b', 'c']);
+  assert.equal(slide.group, group);
   ui.fire('pointerup');
+  assert.equal(slide.group, undefined);
   assert.equal(slide.active, false);
   assert.equal(ui.root.hasPointerCapture(1), false);
   assert.equal(ui.fire('click').defaultPrevented, true);
+  ui.fire('pointerdown', ui.rows[2].choice);
+  assert.notEqual(slide.group, group);
+  ui.fire('pointerup');
   slide.dispose();
   ui.fire('pointerdown', ui.rows[0].choice);
-  assert.deepEqual(selected, ['a', 'b', 'c']);
+  assert.deepEqual(selected, ['a', 'b', 'c', 'c']);
 });
 
 test('touch scrolling and reorder handles do not trigger slide selection', (t) => {

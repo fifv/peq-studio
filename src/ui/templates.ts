@@ -72,14 +72,14 @@ export function appMarkup() {
                 aria-label="Zoom in horizontally"
                 title="Zoom in horizontally"
               >
-                +
+                ${icon('plus')}
               </button>
               <button
                 data-action="zoom-frequency-out"
                 aria-label="Zoom out horizontally"
                 title="Zoom out horizontally"
               >
-                −
+                ${icon('minus')}
               </button>
               <button
                 data-action="reset-frequency"
@@ -96,14 +96,14 @@ export function appMarkup() {
                 aria-label="Zoom in vertically"
                 title="Zoom in vertically"
               >
-                +
+                ${icon('plus')}
               </button>
               <button
                 data-action="zoom-out"
                 aria-label="Zoom out vertically"
                 title="Zoom out vertically"
               >
-                −
+                ${icon('minus')}
               </button>
             </div>
           </div>
@@ -226,8 +226,13 @@ export function bandCards(c: Channel, selected: number) {
               ><span data-adjust="q" data-band-index="${i}" title="Q · drag up/down or scroll"
                 ><em>Q</em><b class="number-value">${+f.q.toFixed(2)}</b></span
               ></button
-            ><button class="band-remove" data-remove="${i}" aria-label="Remove band ${i + 1}">
-              ×
+            ><button
+              class="band-remove"
+              data-remove="${i}"
+              aria-label="Delete band ${i + 1}"
+              title="Delete band"
+            >
+              ${icon('trash')}
             </button>
             <button
               class="band-copy"
@@ -243,7 +248,7 @@ export function bandCards(c: Channel, selected: number) {
               aria-label="Reorder band ${i + 1}"
               title="Drag to reorder · arrow keys to move"
             >
-              ⠿
+              ${icon('grip')}
             </button>
           </div>`,
       )
@@ -317,7 +322,7 @@ export function bandEditor(f: Filter | undefined, selected: number) {
               step="0.05"
               value="${+f.q.toFixed(4)}"
             /></div></label
-        >${ib('close-band', 'close', 'Close band editor')}
+        >${ib('close-band', 'chevron-up', 'Hide band editor')}
       </div>`;
 }
 export function presetList(state: Workspace, search: string) {
@@ -336,7 +341,7 @@ export function presetList(state: Workspace, search: string) {
               aria-label="Reorder ${esc(p.name)}"
               title="Drag to reorder · arrow keys to move"
             >
-              ⠿</button
+              ${icon('grip')}</button
             ><button class="preset-select" data-id="${esc(p.id)}">
               <span>${esc(p.name)}</span></button
             ><button

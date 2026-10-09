@@ -26,6 +26,8 @@ test('hover shows precise cursor values and marks offscreen curve values', () =>
   });
   assert.match(markup, /1234 Hz/);
   assert.match(markup, /-3.25 dB/);
-  assert.match(markup, /\+40.00 dB ↑/);
+  assert.match(markup, /\+40.00 dB/);
+  assert.match(markup, /<path d="M12 20V4m-6 6 6-6 6 6"/);
+  assert.doesNotMatch(markup, /[↑↓]/);
   assert.doesNotMatch(markup, /NaN|Infinity/);
 });

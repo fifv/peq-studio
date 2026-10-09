@@ -5,6 +5,7 @@ import { errorMessage } from './utils.ts';
 import { defaultAutoEqOptions, validateAutoEqOptions } from './autoeq.ts';
 import { installNumericControls } from './numeric-controls.ts';
 import { renderToggle } from './ui/toggle.ts';
+import { icon } from './ui/icons.ts';
 
 export function createAutoEqPopup({
   anchor,
@@ -143,7 +144,7 @@ export function createAutoEqPopup({
     popup.setAttribute('aria-label', 'Auto EQ');
     popup.innerHTML = /* HTML */ `<div class="settings-heading">
         <h2>Auto EQ</h2>
-        <button type="button" data-close aria-label="Close Auto EQ">×</button>
+        <button type="button" data-close aria-label="Close Auto EQ">${icon('close')}</button>
       </div>
       <p class="autoeq-curves"></p>
       <form>

@@ -4,6 +4,7 @@ import type { Workspace, LevelMethod } from './types.ts';
 import { LEVEL_METHODS, curveReferenceLevel, getCurveDisplay } from './curve-level.ts';
 import { findCurve } from './curve-library.ts';
 import { renderToggle } from './ui/toggle.ts';
+import { icon } from './ui/icons.ts';
 
 export function createSettingsPopup({
   anchor,
@@ -91,7 +92,7 @@ export function createSettingsPopup({
     popup.setAttribute('aria-label', 'Display settings');
     popup.innerHTML = /* HTML */ `<div class="settings-heading">
         <h2>Display settings</h2>
-        <button data-close-settings aria-label="Close display settings">×</button>
+        <button data-close-settings aria-label="Close display settings">${icon('close')}</button>
       </div>
       <label
         >Sample rate<select id="sample-rate">
@@ -172,7 +173,7 @@ export function createSettingsPopup({
         ${Object.entries(LEVEL_METHODS)
           .map(
             ([id, title]) =>
-              `<button type="button" role="option" data-level-method="${id}" aria-selected="false" tabindex="-1"><span>${title}</span><span class="alignment-check" aria-hidden="true">✓</span></button>`,
+              `<button type="button" role="option" data-level-method="${id}" aria-selected="false" tabindex="-1"><span>${title}</span><span class="alignment-check" aria-hidden="true">${icon('check')}</span></button>`,
           )
           .join('')}
       </div>`;

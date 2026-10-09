@@ -28,6 +28,18 @@ in `src/input-focus.css` and `--input-focus-border`. Do not add thick or offset
 blue outlines in individual components. Composite fields show one border around
 the complete control; register new composite shells in the shared stylesheet.
 
+## Icons
+
+Use vector icons for all current and future UI controls, never text glyphs, emoji,
+or icon fonts. Prefer the shared SVG icons in `src/ui/icons.ts`; SVG backgrounds
+are also acceptable. Center icons within their control using flex/grid alignment
+and explicit square dimensions, not font baselines or manual text offsets.
+Keep icon-only controls accessibly named and decorative SVGs hidden from assistive
+technology. Mathematical operators and punctuation in ordinary text are not icons.
+Use an upward chevron to hide the band editor, X to dismiss a popup, and a trash
+can to delete a band, preset, or curve. Label the action explicitly in its tooltip
+and accessible name.
+
 ## Deployment
 
 When the user says "deploy", complete the full workflow: run relevant checks and

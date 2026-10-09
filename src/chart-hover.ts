@@ -1,5 +1,6 @@
 import type { Point, PlotBounds, CurveReading } from './types.ts';
 import { clamp } from './utils.ts';
+import { icon } from './ui/icons.ts';
 
 const dbText = (value: number) =>
   `${value > 0 ? '+' : ''}${(Math.abs(value) < 0.005 ? 0 : value).toFixed(2)} dB`;
@@ -61,9 +62,9 @@ export function hoverMarkup({
     .filter((item) => Number.isFinite(item.db))
     .map((item) => ({ ...item, y: clamp(yOf(item.db), t + 6, b - 6) }));
   for (const item of placeReadings(items, t + 13, b - 15)) {
-    const width = item.name.length * 6.1 + 88;
-    const rectX = leftward ? textX - width : textX;
     const offscale = yOf(item.db) < t || yOf(item.db) > b;
+    const width = item.name.length * 6.1 + 88 + (offscale ? 14 : 0);
+    const rectX = leftward ? textX - width : textX;
     html += /* HTML */ `<g class="hover-reading" style="--reading-color:${item.color}"
       ><path
         class="hover-leader"
@@ -77,11 +78,8 @@ export function hoverMarkup({
       /><rect x="${rectX}" y="${item.labelY - 10}" width="${width}" height="20" rx="4" /><text
         x="${rectX + 7}"
         y="${item.labelY + 4}"
-        >${item.name}
-        <tspan class="hover-reading-value"
-          >${dbText(item.db)}${offscale ? (yOf(item.db) < t ? ' ↑' : ' ↓') : ''}</tspan
-        ></text
-      ></g
+        >${item.name} <tspan class="hover-reading-value">${dbText(item.db)}</tspan></text
+      >${offscale ? icon(yOf(item.db) < t ? 'arrow-up' : 'arrow-down', { size: 12, x: rectX + width - 16, y: item.labelY - 6 }) : ''}</g
     >`;
   }
   return html;
