@@ -1,4 +1,5 @@
 import { createEditorControls } from './ui/editor-controls.ts';
+import { installInputClear } from './ui/input-clear.ts';
 import { createEqualizerApoBackend } from './backends/equalizer-apo.ts';
 import { createLiveSync } from './backends/live-sync.ts';
 import { installBandRail } from './ui/band-rail.ts';
@@ -8,7 +9,8 @@ import { installBandHover } from './ui/band-hover.ts';
 import { installCurveHover } from './ui/curve-hover.ts';
 import { createFileActions } from './ui/file-actions.ts';
 import { WorkspaceHistory } from './history.ts';
-import { openModal, chooseFile as chooseFileWithErrors } from './ui/dialog.ts';
+import { openModal, chooseFiles } from './ui/dialog.ts';
+import { readCurveFiles } from './curve-import.ts';
 import { query as $, eventElement } from './dom.ts';
 import { escapeHtml as esc, errorMessage, curveRoles, activePreset } from './utils.ts';
 import type { Workspace, Preset, ChannelName, CurveRole, Layers, Filter } from './types.ts';
@@ -17,6 +19,7 @@ import './curve-picker.css';
 import './controls.css';
 import './scrollbars.css';
 import './layout.css';
+import './input-focus.css';
 import {
   FREQUENCIES,
   clone,
@@ -24,11 +27,15 @@ import {
   newPreset,
   initialState,
   validateState,
-  parseCurve,
   response,
 } from './model.ts';
 import { createCurvePicker } from './curve-picker.ts';
-import { findCurve, removeCustomCurve, loadBuiltinCurve } from './curve-library.ts';
+import {
+  findCurve,
+  removeCustomCurve,
+  loadBuiltinCurve,
+  reorderedCustomCurves,
+} from './curve-library.ts';
 import { createSettingsPopup } from './settings-popup.ts';
 import { installPresetReordering } from './preset-reorder.ts';
 import { installPresetSlide } from './ui/preset-slide.ts';
@@ -177,6 +184,14 @@ const curvePickers = curveRoles.map((kind) =>
       undoToast('Curve removed.');
     },
     onImport: () => importCurveFile(kind),
+    onMove: (id, targetId, after) => {
+      const curves = reorderedCustomCurves(state, id, targetId, after);
+      if (!curves) return;
+      commit(() => {
+        state.curves = curves;
+      });
+      undoToast('Curve reordered.');
+    },
   }),
 );
 
@@ -425,20 +440,30 @@ function addBand(hz = 1000, db = 0) {
     selected = current().filters.length - 1;
   });
 }
-const chooseFile = (
-  accept: string,
-  handler: (text: string, name: string, fileName: string) => void | Promise<void>,
-) => chooseFileWithErrors(accept, handler, toast);
 function importCurveFile(kind: CurveRole) {
-  chooseFile('.csv,.txt,.tsv', (text, name, fileName) => {
-    const curve = { ...parseCurve(text, fileName || name), kind: 'both' as const };
-    commit(() => {
-      state.curves.push(curve);
-      preset()[`${kind}Id`] = curve.id;
-    });
-    if ($<HTMLDialogElement>('#modal').open) $<HTMLDialogElement>('#modal').close();
-    undoToast(`Added ${curve.name}`);
-  });
+  const ownerId = state.activeId;
+  chooseFiles(
+    '.csv,.txt,.tsv',
+    async (files) => {
+      const { curves, errors } = await readCurveFiles(files);
+      if (!curves.length) {
+        toast(errors.join(' '));
+        return;
+      }
+      commit(() => {
+        state.curves.push(...curves);
+        const owner = state.presets.find((p) => p.id === ownerId);
+        if (owner) owner[`${kind}Id`] = curves[0].id;
+      });
+      if ($<HTMLDialogElement>('#modal').open) $<HTMLDialogElement>('#modal').close();
+      const added =
+        curves.length === 1 ? `Added ${curves[0].name}` : `Added ${curves.length} curves`;
+      undoToast(
+        `${added}${errors.length ? `. Skipped ${errors.length}: ${errors.join(' ')}` : ''}`,
+      );
+    },
+    toast,
+  );
 }
 const actions: Record<string, () => void | Promise<void>> = {
   compare: () => {
@@ -682,11 +707,13 @@ renameInput.hidden = true;
 renameInput.setAttribute('aria-label', 'Preset name');
 renameInput.title = 'Enter to save · Escape to cancel';
 $('#preset-name').after(renameInput);
+const renameClear = installInputClear(renameInput, renameInput.parentElement!);
 function startRename() {
   renamingId = state.activeId;
   renameInput.value = preset().name;
   $('#preset-name').hidden = true;
   renameInput.hidden = false;
+  renameClear.update();
   renameInput.focus();
   renameInput.select();
 }
@@ -696,6 +723,7 @@ function finishRename(cancel = false) {
     name = renameInput.value.trim();
   renamingId = null;
   renameInput.hidden = true;
+  renameClear.update();
   $('#preset-name').hidden = false;
   const p = state.presets.find((p) => p.id === id);
   if (!cancel && p && name && name !== p.name)
@@ -711,7 +739,13 @@ renameInput.addEventListener('keydown', (event) => {
     $('#preset-name').focus();
   }
 });
-renameInput.addEventListener('blur', () => finishRename());
+renameInput.addEventListener('blur', (event) => {
+  if (event.relatedTarget !== renameClear.button) finishRename();
+});
+renameClear.button.addEventListener('blur', (event) => {
+  if (event.relatedTarget !== renameInput) finishRename();
+});
+installInputClear($<HTMLInputElement>('#search'));
 $<HTMLInputElement>('#search').addEventListener('input', renderPresets);
 const editorControls = createEditorControls({
   getState: () => state,

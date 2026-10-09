@@ -42,9 +42,14 @@ export function installPopupEvents(
 ): void {
   document.addEventListener('pointerdown', (event) => {
     const popup = getPopup();
+    // Pointer-down selection may replace the row before this bubbles to document.
+    // The event path retains the original popup even after its target is detached.
+    const path = event.composedPath();
     if (
       popup &&
       canDismiss() &&
+      !path.includes(popup) &&
+      !path.includes(anchor) &&
       !popup.contains(event.target as Node) &&
       !anchor.contains(event.target as Node)
     )

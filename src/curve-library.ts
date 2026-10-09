@@ -56,6 +56,23 @@ export function customCurves(state: Workspace, _kind?: CurveRole) {
   // not restrict selection: every import belongs to the shared custom library.
   return state.curves;
 }
+/** Resolve moves by ID so a filtered list can reorder the full library safely. */
+export function reorderedCustomCurves(
+  state: Workspace,
+  id: string,
+  targetId: string,
+  after: boolean,
+) {
+  const from = state.curves.findIndex((curve) => curve.id === id);
+  const target = state.curves.findIndex((curve) => curve.id === targetId);
+  if (from < 0 || target < 0 || from === target) return null;
+  const insertion = target + Number(after);
+  const to = insertion - Number(from < insertion);
+  if (from === to) return null;
+  const curves = [...state.curves];
+  curves.splice(to, 0, ...curves.splice(from, 1));
+  return curves;
+}
 export function findCurve(
   state: Workspace,
   kind: CurveRole,

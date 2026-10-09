@@ -1,4 +1,7 @@
 import { positionPopup, installPopupEvents } from './ui/popover.ts';
+import { installCurveReordering } from './ui/curve-reorder.ts';
+import { installCurveSlide } from './ui/curve-slide.ts';
+import { installInputClear } from './ui/input-clear.ts';
 import { query, eventElement } from './dom.ts';
 import type { Curve, CurveRole, Workspace, PopupController } from './types.ts';
 import { escapeHtml, errorMessage, activePreset } from './utils.ts';
@@ -25,6 +28,7 @@ export function createCurvePicker({
   onSelect,
   onDelete,
   onImport,
+  onMove,
 }: {
   root: HTMLElement;
   kind: CurveRole;
@@ -32,6 +36,7 @@ export function createCurvePicker({
   onSelect: (id: string) => Promise<void>;
   onDelete: (id: string) => void;
   onImport: () => void;
+  onMove: (id: string, targetId: string, after: boolean) => void;
 }) {
   const label = kind === 'target' ? 'Target curve' : 'Source response';
   const selectionsByPreset = new Map<string, Partial<Record<Collection, string>>>();
@@ -41,6 +46,9 @@ export function createCurvePicker({
   const selectedId = () => activePreset(getState())[`${kind}Id`];
   let view = collectionOf(findCurve(getState(), kind));
   let popup: HTMLDivElement | null = null;
+  let reordering: ReturnType<typeof installCurveReordering> | undefined;
+  let sliding: ReturnType<typeof installCurveSlide> | undefined;
+  let selectionRequest = 0;
   let search = '',
     lastSelectedId = selectedId(),
     loading = false,
@@ -115,6 +123,10 @@ export function createCurvePicker({
   }
 
   function close(returnFocus = false) {
+    sliding?.dispose();
+    sliding = undefined;
+    reordering?.dispose();
+    reordering = undefined;
     popup?.remove();
     popup = null;
     trigger.setAttribute('aria-expanded', 'false');
@@ -132,6 +144,7 @@ export function createCurvePicker({
   }
   function renderList() {
     if (!popup) return;
+    reordering?.cancel();
     const results = searchCurves(items(), search),
       list = query('.curve-list', popup);
     list.innerHTML =
@@ -140,16 +153,16 @@ export function createCurvePicker({
           (curve) =>
             /* HTML */ ` <div
               class="curve-library-row ${selectedId() === curve.id ? 'selected' : ''}"
+              ${view === 'custom' ? `data-custom-curve="${escapeHtml(curve.id)}"` : ''}
             >
+              ${view === 'custom' ? /* HTML */ `<button class="curve-reorder" data-curve-reorder="${escapeHtml(curve.id)}" aria-label="Reorder ${escapeHtml(curve.name)}" title="Drag to reorder · Up/Down keys"><span aria-hidden="true">⠿</span></button>` : ''}
               <button
                 class="curve-choice"
                 data-curve-id="${escapeHtml(curve.id)}"
                 aria-pressed="${selectedId() === curve.id}"
                 title="${escapeHtml(curve.name)}"
               >
-                <span class="curve-check" aria-hidden="true"
-                  >${selectedId() === curve.id ? '✓' : ''}</span
-                ><span
+                <span
                   ><span class="curve-choice-name">${escapeHtml(curve.name)}</span
                   >${curve.measurementSystem ? /* HTML */ `<small>${escapeHtml(curve.measurementSystem)}</small>` : ''}</span
                 ></button
@@ -168,13 +181,14 @@ export function createCurvePicker({
       : error ||
         `${results.length} ${results.length === 1 ? 'curve' : 'curves'}${view !== 'custom' ? ` · bundled ${view === 'target' ? TARGET_CATALOG_VERSION : SOURCE_CATALOG_VERSION}` : ' · saved on this device'}`;
     popup.setAttribute('aria-busy', String(loading));
-    popup.querySelectorAll<HTMLButtonElement>('.curve-choice, [data-view]').forEach((button) => {
+    popup.querySelectorAll<HTMLButtonElement>('[data-curve-reorder]').forEach((button) => {
       button.disabled = loading;
     });
     query<HTMLButtonElement>('[data-clear]', popup).disabled = loading || !selectedId();
   }
   function renderPopup() {
     if (!popup) return;
+    reordering?.cancel();
     popup.innerHTML = /* HTML */ `<div
         class="curve-library-tabs"
         role="tablist"
@@ -215,8 +229,8 @@ export function createCurvePicker({
               ? /* HTML */ `<button
                   class="curve-import-button"
                   data-import
-                  aria-label="Import curve"
-                  title="Import curve"
+                  aria-label="Import curves"
+                  title="Import curves · select one or more CSV, TXT, or TSV files"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -237,6 +251,7 @@ export function createCurvePicker({
           ><button data-clear>Clear selection</button>
         </div>
       </div>`;
+    installInputClear(query<HTMLInputElement>('input', popup));
     query<HTMLInputElement>('input', popup).addEventListener('input', (event) => {
       search = (eventElement(event) as HTMLInputElement).value;
       renderList();
@@ -246,7 +261,8 @@ export function createCurvePicker({
     position();
   }
   async function selectCurve(id: string, restore = false) {
-    if (loading || !popup) return;
+    if (!popup || (id === selectedId() && !loading)) return;
+    const request = ++selectionRequest;
     const selectionOwner = presetId;
     const activePopup = popup,
       scrollTop = query('.curve-list', popup).scrollTop,
@@ -258,12 +274,12 @@ export function createCurvePicker({
       await onSelect(id);
       if (!id && selectionOwner === presetId) delete selectedByCollection[previousCollection];
     } catch (e) {
-      error = errorMessage(e);
+      if (request === selectionRequest) error = errorMessage(e);
     } finally {
-      loading = false;
-      if (popup) {
+      if (request === selectionRequest) loading = false;
+      if (popup && request === selectionRequest) {
         renderList();
-        if (popup === activePopup) {
+        if (popup === activePopup && !sliding?.active) {
           if (restore) revealSelected();
           else {
             query('.curve-list', popup).scrollTop = scrollTop;
@@ -277,7 +293,7 @@ export function createCurvePicker({
     }
   }
   async function switchCollection(next: Collection) {
-    if (loading || !popup || next === view) return;
+    if (!popup || next === view) return;
     view = next;
     renderPopup();
     query<HTMLButtonElement>(`[data-view="${view}"]`, popup).focus();
@@ -308,6 +324,16 @@ export function createCurvePicker({
     renderPopup();
     query<HTMLInputElement>('input', popup).focus({ preventScroll: true });
     revealSelected();
+    reordering = installCurveReordering(popup, onMove);
+    sliding = installCurveSlide(
+      popup,
+      (id) => {
+        void selectCurve(id);
+      },
+      (id) => {
+        void switchCollection(id as Collection);
+      },
+    );
     popup.addEventListener('click', async (event) => {
       const tab = eventElement(event).closest<HTMLElement>('[data-view]');
       if (tab) {
@@ -328,7 +354,6 @@ export function createCurvePicker({
         return;
       }
       if (eventElement(event).closest<HTMLElement>('[data-import]')) {
-        close();
         onImport();
         return;
       }

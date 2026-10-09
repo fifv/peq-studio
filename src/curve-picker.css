@@ -102,12 +102,6 @@
   font-size: 12px;
   border-radius: 0;
 }
-.curve-library-search:focus-within {
-  border-color: #4d7dbd;
-}
-.curve-library-search input:focus-visible {
-  outline: none;
-}
 .curve-import-button {
   width: 31px;
   height: 29px;
@@ -146,6 +140,36 @@
   background: #20375a;
   border-color: #385a8b;
 }
+.curve-reorder {
+  width: 20px;
+  height: 30px;
+  padding: 0;
+  margin-left: 3px;
+  flex-shrink: 0;
+  background: transparent;
+  border-color: transparent;
+  color: #637e9e;
+  cursor: grab;
+  touch-action: none;
+}
+.curve-reorder:hover,
+.curve-reorder:focus-visible {
+  color: #b3d0f4;
+  background: #253952;
+}
+.curve-library-row.reordering {
+  opacity: 0.5;
+}
+.curve-library-row.reorder-before {
+  box-shadow: 0 -2px #75aaff;
+}
+.curve-library-row.reorder-after {
+  box-shadow: 0 2px #75aaff;
+}
+.reordering-curves,
+.reordering-curves * {
+  cursor: grabbing;
+}
 .curve-choice {
   min-width: 0;
   flex: 1;
@@ -160,13 +184,6 @@
 }
 .curve-choice:hover {
   background: transparent;
-}
-.curve-check {
-  display: block;
-  width: 17px;
-  flex-shrink: 0;
-  color: #90b9ff;
-  font-size: 12px;
 }
 .curve-choice > span:last-child {
   min-width: 0;

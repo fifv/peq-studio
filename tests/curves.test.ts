@@ -8,6 +8,7 @@ import {
   findCurve,
   searchCurves,
   removeCustomCurve,
+  reorderedCustomCurves,
 } from '../src/curve-library.ts';
 import {
   initialState,
@@ -21,6 +22,60 @@ import {
 import { WorkspaceHistory } from '../src/history.ts';
 import { BUILTIN_SOURCES, loadBuiltinCurve } from '../src/curve-library.ts';
 import { readFile } from 'node:fs/promises';
+
+test('custom curve order survives reload and undo without changing any preset selection', () => {
+  let state = initialState();
+  state.curves = ['A', 'B', 'C', 'D'].map((name) => parseCurve('20,0\n20000,2', name));
+  const original = state.curves.map((curve) => curve.id);
+  state.presets.forEach((preset) => {
+    preset.targetId = original[0];
+    preset.sourceId = original[2];
+  });
+  const selections = state.presets.map(({ targetId, sourceId }) => [targetId, sourceId]);
+  const history = new WorkspaceHistory();
+  history.capture(state);
+  state.curves = reorderedCustomCurves(state, original[0], original[2], true)!;
+  state = validateState(JSON.parse(JSON.stringify(state)));
+  assert.deepEqual(
+    state.curves.map((curve) => curve.name),
+    ['B', 'C', 'A', 'D'],
+  );
+  assert.deepEqual(
+    state.presets.map(({ targetId, sourceId }) => [targetId, sourceId]),
+    selections,
+  );
+  assert.deepEqual(customCurves(state, 'target'), customCurves(state, 'source'));
+  state = history.restore(state, true)!;
+  assert.deepEqual(
+    state.curves.map((curve) => curve.id),
+    original,
+  );
+  state.curves = reorderedCustomCurves(state, original[3], original[0], false)!;
+  assert.deepEqual(
+    state.curves.map((curve) => curve.name),
+    ['D', 'A', 'B', 'C'],
+  );
+});
+
+test('filtered curve moves retain hidden rows and ignore invalid or unchanged positions', () => {
+  const state = initialState();
+  state.curves = ['Match A', 'Hidden', 'Match B', 'Last'].map((name) =>
+    parseCurve('20,0\n20000,2', name),
+  );
+  const [a, b] = searchCurves(state.curves, 'match');
+  state.curves = reorderedCustomCurves(state, b.id, a.id, false)!;
+  assert.deepEqual(
+    state.curves.map((curve) => curve.name),
+    ['Match B', 'Match A', 'Hidden', 'Last'],
+  );
+  const before = structuredClone(state);
+  assert.equal(reorderedCustomCurves(state, b.id, a.id, false), null);
+  assert.equal(reorderedCustomCurves(state, a.id, b.id, true), null);
+  assert.equal(reorderedCustomCurves(state, a.id, a.id, true), null);
+  assert.equal(reorderedCustomCurves(state, 'missing', a.id, false), null);
+  assert.equal(reorderedCustomCurves(state, a.id, BUILTIN_TARGETS[0].id, true), null);
+  assert.deepEqual(state, before);
+});
 
 test('legacy shared selections migrate to each preset without overriding preset-specific choices', () => {
   const state = initialState();

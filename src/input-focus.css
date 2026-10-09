@@ -1,0 +1,20 @@
+/* Shared field focus treatment. Add composite field shells here, not local overrides. */
+:root :is(input, textarea, select):focus,
+:root [contenteditable='true']:focus,
+.alignment-trigger:focus-visible,
+.alignment-options button:focus-visible,
+.import-modes input:focus-visible + span,
+.filter-type-choice:has(input:focus-visible),
+:is(.unit-input, .preamp-value, .curve-offset > span, .curve-library-search):focus-within {
+  border-color: var(--input-focus-border);
+  outline: 1px solid var(--input-focus-border);
+  outline-offset: -1px;
+  box-shadow: none;
+}
+
+/* Composite controls show a single border around the whole field, including its units. */
+:root :is(.unit-input, .preamp-value, .curve-offset > span, .curve-library-search) input:focus {
+  border-color: transparent;
+  outline: none;
+  box-shadow: none;
+}

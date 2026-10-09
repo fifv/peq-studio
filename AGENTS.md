@@ -21,6 +21,13 @@ UI text should be unselectable, including dialog titles, labels, descriptions,
 buttons, and other interface text. Keep editable fields and intentionally
 copyable content (such as configuration text, commands, and file paths) selectable.
 
+## Input focus
+
+All current and future input fields use the shared thin, muted blue focus border
+in `src/input-focus.css` and `--input-focus-border`. Do not add thick or offset
+blue outlines in individual components. Composite fields show one border around
+the complete control; register new composite shells in the shared stylesheet.
+
 ## Deployment
 
 When the user says "deploy", complete the full workflow: run relevant checks and

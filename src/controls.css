@@ -119,17 +119,12 @@
   font-weight: 600;
   letter-spacing: -0.7px;
   margin-top: 0;
-  padding: 5px 10px;
+  padding: 5px 38px 5px 10px;
   border: 1px solid #34465f;
   border-radius: 8px;
   background: #0d1726;
   color: #dce5f5;
   line-height: 1.4;
-}
-#rename-input:focus {
-  outline: none;
-  border-color: #6385b4;
-  box-shadow: 0 2px 8px #0002;
 }
 #rename-input::selection {
   background: #36547b;
@@ -458,10 +453,6 @@
   border-color: #508bdf;
   color: #dceaff;
 }
-.import-modes input:focus-visible + span {
-  outline: 2px solid #80b2ff;
-  outline-offset: 2px;
-}
 .point-hover-ring {
   opacity: 0;
 }
@@ -634,10 +625,6 @@
   border-color: #548eff;
   color: #e5efff;
 }
-.filter-type-choice:has(input:focus-visible) {
-  outline: 2px solid #78a8ff;
-  outline-offset: 2px;
-}
 [data-adjust] {
   cursor: ns-resize;
   touch-action: none;
@@ -646,13 +633,6 @@ input[type='number'][data-adjust]:focus {
   cursor: text;
 }
 /* Focus belongs to the complete value + unit control, not its inner input. */
-:is(.unit-input, .preamp-value, .curve-offset > span):focus-within {
-  outline: 2px solid #78a8ff;
-  outline-offset: -1px;
-}
-:is(.unit-input, .preamp-value, .curve-offset > span) input[type='number']:focus-visible {
-  outline: none;
-}
 .preamp-value {
   border-radius: 5px;
 }
@@ -971,11 +951,6 @@ dialog .config-text {
 }
 .alignment-options button[aria-selected='true'] .alignment-check {
   visibility: visible;
-}
-.alignment-trigger:focus-visible,
-.alignment-options button:focus-visible {
-  outline: 2px solid #78aaff;
-  outline-offset: 2px;
 }
 .autoeq-popup fieldset {
   border: 0;

@@ -14,6 +14,7 @@
   --line: #242d3e;
   --blue: #347df7;
   --panel: #111824;
+  --input-focus-border: #4d7dbd;
 }
 * {
   box-sizing: border-box;
@@ -72,9 +73,6 @@ button:disabled {
   opacity: 0.35;
 }
 button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid #78a8ff;
   outline-offset: 3px;
@@ -100,6 +98,47 @@ input[type='number'] {
 }
 input::-webkit-inner-spin-button {
   appearance: none;
+}
+.clearable-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+input.has-clear-button::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.clearable-field > input.has-clear-button {
+  width: 100%;
+  padding-right: 36px;
+}
+button.input-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #8398b5;
+}
+button.input-clear[hidden] {
+  display: none;
+}
+button.input-clear:hover,
+button.input-clear:focus-visible {
+  background: #253952;
+  border-color: #466181;
+  color: #e1ecff;
+}
+button.input-clear:active {
+  background: #38557a;
+  border-color: #6c95cb;
+  transform: translateY(-50%) scale(0.9);
 }
 select {
   cursor: pointer;
@@ -868,10 +907,21 @@ input.toggle-input:disabled {
 .rail-actions button {
   font-size: 10px;
   padding: 7px 10px;
-  color: #8e9fb9;
+  color: #9eafc7;
+  background: #142030;
+  border-color: #2d3c51;
 }
-.rail-actions button:first-child {
-  border-color: #35415a;
+.rail-actions button:hover,
+.rail-actions button:focus-visible {
+  color: #d2dff0;
+  background: #1b2a3d;
+  border-color: #49617e;
+}
+.rail-actions [data-action='clear']:hover,
+.rail-actions [data-action='clear']:focus-visible {
+  color: #ff9da6;
+  background: #38212b;
+  border-color: #8c4855;
 }
 .detail-panel {
   display: flex;

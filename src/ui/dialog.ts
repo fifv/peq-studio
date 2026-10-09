@@ -91,15 +91,40 @@ export function chooseFile(
   handler: (text: string, name: string, fileName: string) => void | Promise<void>,
   onError: (message: string) => void,
 ) {
+  chooseFileSelection(
+    accept,
+    false,
+    async ([file]) => {
+      if (file.size > 10 * 1024 * 1024) throw Error('Choose a file smaller than 10 MB.');
+      await handler(await file.text(), file.name.replace(/\.[^.]+$/, ''), file.name);
+    },
+    onError,
+  );
+}
+
+export function chooseFiles(
+  accept: string,
+  handler: (files: File[]) => void | Promise<void>,
+  onError: (message: string) => void,
+) {
+  chooseFileSelection(accept, true, handler, onError);
+}
+
+function chooseFileSelection(
+  accept: string,
+  multiple: boolean,
+  handler: (files: File[]) => void | Promise<void>,
+  onError: (message: string) => void,
+) {
   const input = $<HTMLInputElement>('#file-input');
   input.value = '';
   input.accept = accept;
+  input.multiple = multiple;
   input.onchange = async () => {
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = Array.from(input.files ?? []);
+    if (!files.length) return;
     try {
-      if (file.size > 10 * 1024 * 1024) throw Error('Choose a file smaller than 10 MB.');
-      await handler(await file.text(), file.name.replace(/\.[^.]+$/, ''), file.name);
+      await handler(multiple ? files : files.slice(0, 1));
     } catch (e) {
       onError(errorMessage(e));
     }
