@@ -543,6 +543,7 @@ export function createChart({
       }
       const p = position(event);
       if (
+        index === undefined ||
         drag ||
         panDrag ||
         event.deltaY === 0 ||
@@ -553,7 +554,7 @@ export function createChart({
       )
         return;
       const selection = getSelection();
-      const indices = index !== undefined && !selection.includes(+index) ? [+index] : selection;
+      const indices = !selection.includes(+index) ? [+index] : selection;
       if (!indices.length) return;
       event.preventDefault();
       onAdjustQ(indices, event);

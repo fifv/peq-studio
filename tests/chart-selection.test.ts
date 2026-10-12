@@ -143,6 +143,7 @@ function fixture(t: TestContext) {
       ),
     );
     svg.dispatchEvent(event);
+    return event;
   }
   return {
     chart,
@@ -240,20 +241,31 @@ test('graph clicks collapse selection or clear it without an undo entry', (t) =>
   assert.deepEqual(f.history(), { begins: 0, ends: 0 });
 });
 
-test('graph wheel adjusts the whole selection on blank space or selected handles and preserves Shift zoom', (t) => {
+test('graph wheel leaves blank space scrolling native, adjusts Q only on dots, and preserves Shift zoom', (t) => {
   const f = fixture(t);
   f.pointer('pointerdown', 200, 130, { shiftKey: true });
   f.pointer('pointermove', 650, 230);
   f.pointer('pointerup', 650, 230);
-  f.pointer('wheel', 600, 240, { deltaY: -100 });
+  assert.deepEqual(f.selected(), [0, 1]);
+  for (const deltaY of [-100, 100]) {
+    const wheel = f.pointer('wheel', 600, 240, { deltaY });
+    assert.equal(wheel.defaultPrevented, false, 'blank graph space permits normal page scrolling');
+  }
+  assert.deepEqual(f.qRequests, []);
   const point = new Node();
   point.dataset.point = '0';
-  f.pointer('wheel', 270, 185, { target: point, deltaY: -100 });
-  assert.deepEqual(f.qRequests, [
-    [0, 1],
-    [0, 1],
-  ]);
-  f.pointer('wheel', 600, 240, { deltaY: -100, shiftKey: true });
+  assert.equal(
+    f.pointer('wheel', 270, 185, { target: point, deltaY: -100 }).defaultPrevented,
+    true,
+  );
+  assert.deepEqual(f.qRequests, [[0, 1]]);
+  point.dataset.point = '2';
+  f.pointer('wheel', 850, 240, { target: point, deltaY: -100 });
+  assert.deepEqual(f.qRequests, [[0, 1], [2]]);
+  assert.equal(
+    f.pointer('wheel', 600, 240, { deltaY: -100, shiftKey: true }).defaultPrevented,
+    true,
+  );
   assert.equal(f.qRequests.length, 2);
   assert.ok(f.state.chartView.maxHz / f.state.chartView.minHz < 1000);
 });
