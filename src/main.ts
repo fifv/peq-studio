@@ -2,6 +2,7 @@ import { createEditorControls } from './ui/editor-controls.ts';
 import { installInputClear } from './ui/input-clear.ts';
 import { createEqualizerApoBackend } from './backends/equalizer-apo.ts';
 import { createLiveSync } from './backends/live-sync.ts';
+import { createBlindTest, type BlindTestController } from './ui/blind-test.ts';
 import { installBandRail } from './ui/band-rail.ts';
 import { installBandReordering } from './ui/band-reorder.ts';
 import { applyPresetImport, duplicateBand, moveBand } from './preset-edits.ts';
@@ -20,6 +21,7 @@ import './controls.css';
 import './scrollbars.css';
 import './layout.css';
 import './input-focus.css';
+import './blind-test.css';
 import {
   FREQUENCIES,
   clone,
@@ -180,6 +182,7 @@ try {
   /* Keep the current session usable when storage is unavailable. */
 }
 let backendMessage = 'Run the Go console backend locally to write peqstudio.txt.';
+let blindTest: BlindTestController | undefined;
 const liveSync = createLiveSync(
   apoBackend,
   (status) => {
@@ -199,12 +202,18 @@ const liveSync = createLiveSync(
     if (detail) detail.textContent = status.message;
     const path = document.querySelector('#live-sync-path');
     if (path) path.textContent = apoBackend.configPath || 'peqstudio.txt';
+    blindTest?.onSync(status);
   },
   2000,
   liveSyncEnabled,
 );
 function syncBackend() {
-  liveSync.update(preset(), state.sampleRate, state.filtersEnabled);
+  const listening = blindTest?.playback();
+  liveSync.update(
+    listening?.preset ?? preset(),
+    listening?.sampleRate ?? state.sampleRate,
+    listening ? true : state.filtersEnabled,
+  );
 }
 
 const curvePickers = curveRoles.map((kind) =>
@@ -937,6 +946,12 @@ document.addEventListener('keydown', (event) => {
   }
 });
 render();
+blindTest = createBlindTest({
+  getState: () => state,
+  sync: syncBackend,
+  isSyncEnabled: () => liveSyncEnabled,
+  toast,
+});
 // Reveal only within the preset list; never move the page or animate on startup.
 requestAnimationFrame(() => {
   const list = $('#presets');

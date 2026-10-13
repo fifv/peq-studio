@@ -94,6 +94,9 @@ export function createLiveSync(
     update(preset: Preset, sampleRate: number, filtersEnabled = true) {
       if (stopped) return;
       desired = JSON.stringify(backendConfiguration(preset, sampleRate, filtersEnabled));
+      // Identical choices still acknowledge readiness (e.g. two matching blind-test presets).
+      if (enabled && !running && desired === applied)
+        onStatus({ kind: 'synced', message: 'peqstudio.txt is up to date.' });
       void pump();
     },
     setEnabled(value: boolean) {

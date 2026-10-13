@@ -28,6 +28,12 @@ in `src/input-focus.css` and `--input-focus-border`. Do not add thick or offset
 blue outlines in individual components. Composite fields show one border around
 the complete control; register new composite shells in the shared stylesheet.
 
+## Motion and feedback
+
+Prefer immediate visual feedback. Do not add animations, transitions, fades,
+or smooth scrolling unless the user explicitly requests them. Hover, focus,
+selection, and other UI state changes should appear immediately.
+
 ## Icons
 
 Use vector icons for all current and future UI controls, never text glyphs, emoji,

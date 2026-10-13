@@ -13,6 +13,46 @@ function deferred() {
   return { promise, resolve };
 }
 
+test('identical blind choices acknowledge readiness without another write, and queued switches wait for the final write', async (t) => {
+  const sent: BackendConfiguration[] = [];
+  const statuses: SyncStatus[] = [];
+  let block: ReturnType<typeof deferred> | undefined;
+  const sync = createLiveSync(
+    {
+      id: 'test',
+      name: 'test',
+      async connect() {},
+      async disconnect() {},
+      async apply(config) {
+        sent.push(config);
+        if (block) await block.promise;
+      },
+    },
+    (status) => statuses.push(status),
+  );
+  t.after(() => sync.stop());
+  const preset = newPreset('Blind comparison');
+  sync.update(preset, 48000);
+  await until(() => statuses.at(-1)?.kind === 'synced');
+  const reports = statuses.length;
+  sync.update(preset, 48000);
+  assert.equal(statuses.length, reports + 1);
+  assert.equal(statuses.at(-1)?.kind, 'synced');
+  assert.equal(sent.length, 1);
+  block = deferred();
+  preset.left.preampDb = -1;
+  sync.update(preset, 48000);
+  await until(() => sent.length === 2);
+  preset.left.preampDb = -2;
+  sync.update(preset, 48000);
+  assert.equal(statuses.at(-1)?.kind, 'syncing');
+  const release = block;
+  block = undefined;
+  release.resolve();
+  await until(() => statuses.at(-1)?.kind === 'synced');
+  assert.equal(sent.at(-1)?.left.preampDb, -2);
+});
+
 test('disabled sync makes no connections and resumes with the latest preset', async (t) => {
   let connects = 0;
   const sent: BackendConfiguration[] = [];
