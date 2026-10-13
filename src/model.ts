@@ -84,6 +84,7 @@ export function initialState(): Workspace {
     filtersEnabled: true,
     presets: [example, flat],
     activeId: example.id,
+    previousPresetId: null,
     curves: [],
     sampleRate: 48000,
     curveDisplay: defaultGraphDisplay(),
@@ -301,6 +302,9 @@ export function validateState(value: unknown): Workspace {
   } catch {
     autoEqOptions = defaultAutoEqOptions();
   }
+  const activeId = presets.some((p) => p.id === state.activeId)
+    ? String(state.activeId)
+    : presets[0].id;
   return {
     version: 1,
     // Migrate the currently audible legacy preset mode into one workspace-wide A/B choice.
@@ -312,7 +316,13 @@ export function validateState(value: unknown): Workspace {
           ).filtersEnabled !== false,
     presets,
     curves,
-    activeId: presets.some((p) => p.id === state.activeId) ? String(state.activeId) : presets[0].id,
+    activeId,
+    previousPresetId:
+      typeof state.previousPresetId === 'string' &&
+      state.previousPresetId !== activeId &&
+      presets.some((p) => p.id === state.previousPresetId)
+        ? state.previousPresetId
+        : null,
     sampleRate:
       typeof state.sampleRate === 'number' &&
       [44100, 48000, 96000, 192000].includes(state.sampleRate)

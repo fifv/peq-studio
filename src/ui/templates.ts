@@ -37,7 +37,7 @@ export function appMarkup() {
               data-action="compare"
               aria-pressed="false"
               aria-keyshortcuts="B"
-              title="Compare with filters bypassed, keeping the same preamp · Shortcut B"
+              title="Compare with filters bypassed, keeping the same preamp · B, or Space with no bands selected"
             >
               A · EQ
             </button>
@@ -216,7 +216,7 @@ export function bandCards(c: Channel, selected: number, selection: number[] = [s
               class="band-detail"
               data-band="${i}"
               aria-label="Edit band ${i + 1}"
-              title="Click to edit · Ctrl/Cmd-click to add or remove · Shift-click to select a range"
+              title="Click to edit · Ctrl/Cmd-click to add or remove · Shift-click to select a range · Space to toggle selected bands"
             >
               <span
                 data-adjust="frequency"
@@ -301,7 +301,7 @@ export function bandEditor(f: Filter | undefined, selected: number, selection: F
       </div>
       <p>
         Drag or scroll to adjust · Enter applies typed changes · Returns to 0 after applying ·
-        Shift: fine · Alt: 5× scroll
+        Shift: fine · Alt: 5× scroll · Space: toggle each selected band
       </p>
     </div>`;
   return !f

@@ -279,7 +279,7 @@ export function createChart({
       return readings;
     };
     if (activePreset(state).enabled && !state.filtersEnabled)
-      html += `<g class="chart-bypass-badge" transform="translate(${bounds.l + 10}, ${bounds.r - bounds.l < 520 ? bounds.b - 36 : bounds.t + 10})">
+      html += `<g class="chart-bypass-badge" transform="translate(${bounds.l + 10}, ${bounds.b - 36})">
         <rect width="220" height="26" rx="7" />
         <text x="110" y="13" text-anchor="middle" dominant-baseline="central">Filters bypassed · Preamp active</text>
       </g>`;

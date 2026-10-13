@@ -3,11 +3,21 @@ import { activePreset, clone } from './utils.ts';
 
 export type ImportMode = 'new' | 'replace' | 'append';
 
+/** Keep the last two actual selections available for instant back-and-forth switching. */
+export function activatePreset(state: Workspace, id: string) {
+  if (state.activeId === id || !state.presets.some((p) => p.id === id)) return false;
+  state.previousPresetId = state.presets.some((p) => p.id === state.activeId)
+    ? state.activeId
+    : null;
+  state.activeId = id;
+  return true;
+}
+
 /** Import filters without discarding the current preset's name or curve choices. */
 export function applyPresetImport(state: Workspace, imported: Preset, mode: ImportMode) {
   if (mode === 'new') {
     state.presets.push(clone(imported));
-    state.activeId = imported.id;
+    activatePreset(state, imported.id);
     return;
   }
   const current = activePreset(state);

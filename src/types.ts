@@ -78,6 +78,7 @@ export interface Workspace {
   filtersEnabled: boolean;
   presets: Preset[];
   activeId: string;
+  previousPresetId: string | null;
   curves: MeasuredCurve[];
   sampleRate: number;
   curveDisplay: GraphDisplay;

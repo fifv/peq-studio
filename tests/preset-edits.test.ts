@@ -2,8 +2,41 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initialState, newBand, newPreset, validateState } from '../src/model.ts';
 import { activePreset } from '../src/utils.ts';
-import { applyPresetImport, duplicateBand, moveBand } from '../src/preset-edits.ts';
+import { activatePreset, applyPresetImport, duplicateBand, moveBand } from '../src/preset-edits.ts';
 import { WorkspaceHistory } from '../src/history.ts';
+
+test('previous preset alternates the last pair, survives reload, and rejects stale selections', () => {
+  let state = initialState();
+  const [first, second] = state.presets;
+  const third = newPreset('Third');
+  state.presets.push(third);
+  assert.equal(state.previousPresetId, null);
+  assert.equal(activatePreset(state, second.id), true);
+  assert.equal(state.previousPresetId, first.id);
+  assert.equal(activatePreset(state, second.id), false);
+  assert.equal(state.previousPresetId, first.id, 'reselecting the same row preserves the pair');
+  state = validateState(JSON.parse(JSON.stringify(state)));
+  for (let i = 0; i < 6; i++) {
+    assert.equal(activatePreset(state, state.previousPresetId!), true);
+    assert.equal(state.activeId, i % 2 ? second.id : first.id);
+  }
+  activatePreset(state, third.id);
+  assert.equal(state.previousPresetId, second.id);
+  assert.equal(activatePreset(state, 'missing'), false);
+  assert.equal(state.activeId, third.id);
+  state.presets = state.presets.filter((p) => p.id !== second.id);
+  state = validateState(state);
+  assert.equal(state.previousPresetId, null, 'deleted presets cannot be recalled');
+  assert.equal(validateState({ ...state, previousPresetId: third.id }).previousPresetId, null);
+  assert.equal(validateState({ ...state, previousPresetId: undefined }).previousPresetId, null);
+  const imported = newPreset('Imported');
+  applyPresetImport(state, imported, 'new');
+  assert.equal(
+    state.previousPresetId,
+    third.id,
+    'creating/importing a preset also remembers the old selection',
+  );
+});
 
 test('replace import preserves identity and curves, replaces both channels, and undoes as one edit', () => {
   const state = initialState();

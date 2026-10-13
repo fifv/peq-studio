@@ -4,8 +4,9 @@ import { createEqualizerApoBackend } from './backends/equalizer-apo.ts';
 import { createLiveSync } from './backends/live-sync.ts';
 import { createBlindTest, type BlindTestController } from './ui/blind-test.ts';
 import { installBandRail } from './ui/band-rail.ts';
+import { installBandKeyboard } from './ui/band-keyboard.ts';
 import { installBandReordering } from './ui/band-reorder.ts';
-import { applyPresetImport, duplicateBand, moveBand } from './preset-edits.ts';
+import { activatePreset, applyPresetImport, duplicateBand, moveBand } from './preset-edits.ts';
 import { installBandHover } from './ui/band-hover.ts';
 import { installCurveHover } from './ui/curve-hover.ts';
 import { createFileActions } from './ui/file-actions.ts';
@@ -319,7 +320,7 @@ function duplicatePreset(id: string) {
     copy.id = crypto.randomUUID();
     copy.name += ' · copy';
     state.presets.splice(index + 1, 0, copy);
-    state.activeId = copy.id;
+    activatePreset(state, copy.id);
     selected = -1;
   });
 }
@@ -332,12 +333,13 @@ function deletePreset(id: string) {
   let replacement: Preset | null = null;
   commit(() => {
     state.presets.splice(index, 1);
+    if (state.previousPresetId === id) state.previousPresetId = null;
     if (!state.presets.length) {
       replacement = newPreset();
       state.presets.push(replacement);
     }
     if (wasActive) {
-      state.activeId = state.presets[Math.min(index, state.presets.length - 1)].id;
+      activatePreset(state, state.presets[Math.min(index, state.presets.length - 1)].id);
       selected = -1;
     }
   });
@@ -357,7 +359,7 @@ function deletePreset(id: string) {
         removed,
       );
       if (wasActive) {
-        state.activeId = id;
+        activatePreset(state, id);
         selected = -1;
       }
     });
@@ -378,8 +380,7 @@ installPresetReordering($('#presets'), (id, targetId, after) => {
   });
 });
 function selectPreset(id: string, focus = true) {
-  if (state.activeId === id) return;
-  state.activeId = id;
+  if (!activatePreset(state, id)) return;
   selected = -1;
   channel = 'left';
   save();
@@ -407,7 +408,7 @@ function render() {
   compare.setAttribute('aria-pressed', String(!state.filtersEnabled));
   compare.title = !p.enabled
     ? 'Turn Power on to compare EQ with preamp only'
-    : 'Compare with filters bypassed, keeping the same preamp · Shortcut B';
+    : 'Compare with filters bypassed, keeping the same preamp · B, or Space with no bands selected';
   curvePickers.forEach((picker) => picker.update());
   settingsPopup.update();
   autoEqPopup.update();
@@ -607,7 +608,7 @@ const actions: Record<string, () => void | Promise<void>> = {
     commit(() => {
       const p = newPreset(`Local preset ${state.presets.length + 1}`);
       state.presets.push(p);
-      state.activeId = p.id;
+      activatePreset(state, p.id);
       selected = -1;
     }),
   duplicate: () => duplicatePreset(state.activeId),
@@ -926,12 +927,21 @@ document.addEventListener('change', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (
+    event.defaultPrevented ||
+    event.isComposing ||
     eventElement(event).closest(
       'input,textarea,select,[contenteditable]:not([contenteditable="false"])',
     ) ||
     $<HTMLDialogElement>('#modal').open
   )
     return;
+  if (event.key.toLowerCase() === 's' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (state.previousPresetId) {
+      event.preventDefault();
+      if (!event.repeat) selectPreset(state.previousPresetId, false);
+    }
+    return;
+  }
   if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) {
     event.preventDefault();
     if (!event.repeat) actions.compare();
@@ -946,6 +956,17 @@ document.addEventListener('keydown', (event) => {
   }
 });
 render();
+installBandKeyboard(
+  document,
+  () =>
+    selectedBands()
+      .map((i) => current().filters[i])
+      .filter(Boolean),
+  commit,
+  () => {
+    void actions.compare();
+  },
+);
 blindTest = createBlindTest({
   getState: () => state,
   sync: syncBackend,
