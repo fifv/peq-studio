@@ -24,7 +24,7 @@ export function exportFilteredCurve(
   state: Workspace,
   channel: Channel,
   enabled: boolean,
-  filtersEnabled = true,
+  filtersEnabled = state.filtersEnabled,
 ): string {
   const source = findCurve(state, 'source');
   const target = findCurve(state, 'target');

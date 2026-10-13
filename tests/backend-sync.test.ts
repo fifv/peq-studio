@@ -295,14 +295,12 @@ test('A/B changes sync with the original preamp and stored bands intact', async 
   p.left.preampDb = -6;
   sync.update(p, 48000);
   await until(() => sent.length === 1);
-  p.filtersEnabled = false;
-  sync.update(p, 48000);
+  sync.update(p, 48000, false);
   await until(() => sent.length === 2);
   assert.equal(sent[1].enabled, true);
   assert.equal(sent[1].filtersEnabled, false);
   assert.equal(sent[1].left.preampDb, -6);
-  p.filtersEnabled = true;
-  sync.update(p, 48000);
+  sync.update(p, 48000, true);
   await until(() => sent.length === 3);
   assert.equal(sent[2].filtersEnabled, true);
 });

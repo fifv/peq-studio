@@ -20,36 +20,58 @@ test('preamp-only comparison keeps gains and per-band bypass through A/B and mas
     filters: [newBand(1000, 9), { ...newBand(3000, 4), enabled: false }],
   });
   const stored = JSON.stringify(p.left);
-  assert.ok(Math.abs(response(playbackChannel(p.left, p), 1000) - 3) < 1e-6);
-  p.filtersEnabled = false;
-  for (const hz of [20, 1000, 20000]) assert.equal(response(playbackChannel(p.left, p), hz), -6);
-  assert.equal(backendConfiguration(p).filtersEnabled, false);
+  let filtersEnabled = true;
+  const playing = () => playbackChannel(p.left, { enabled: p.enabled, filtersEnabled });
+  assert.ok(Math.abs(response(playing(), 1000) - 3) < 1e-6);
+  filtersEnabled = false;
+  for (const hz of [20, 1000, 20000]) assert.equal(response(playing(), hz), -6);
+  assert.equal(backendConfiguration(p, 48000, filtersEnabled).filtersEnabled, false);
   p.enabled = false;
-  assert.equal(response(playbackChannel(p.left, p), 1000), 0);
-  p.filtersEnabled = true;
-  assert.equal(response(playbackChannel(p.left, p), 1000), 0);
+  assert.equal(response(playing(), 1000), 0);
+  filtersEnabled = true;
+  assert.equal(response(playing(), 1000), 0);
   p.enabled = true;
-  assert.ok(Math.abs(response(playbackChannel(p.left, p), 1000) - 3) < 1e-6);
+  assert.ok(Math.abs(response(playing(), 1000) - 3) < 1e-6);
   assert.equal(JSON.stringify(p.left), stored);
 });
 
-test('comparison survives JSON, workspace reload, replace import and undo', () => {
+test('global comparison survives backup, reload, preset switching, imports and undo', () => {
   const state = initialState();
   const history = new WorkspaceHistory();
   history.capture(state);
-  state.presets[0].filtersEnabled = false;
+  state.filtersEnabled = false;
   const restored = validateState(JSON.parse(JSON.stringify(state)));
-  assert.equal(restored.presets[0].filtersEnabled, false);
+  assert.equal(restored.filtersEnabled, false);
   const imported = importPreset(exportPreset(restored.presets[0]), 'Compare');
-  assert.equal(imported.filtersEnabled, false);
+  assert.equal('filtersEnabled' in imported, false, 'A/B mode is not part of a preset');
   applyPresetImport(state, imported, 'replace');
-  assert.equal(state.presets[0].filtersEnabled, false);
-  assert.equal(history.restore(state, true)!.presets[0].filtersEnabled, true);
+  assert.equal(state.filtersEnabled, false);
+  state.activeId = state.presets[1].id;
+  assert.equal(
+    backendConfiguration(state.presets[1], state.sampleRate, state.filtersEnabled).filtersEnabled,
+    false,
+  );
+  applyPresetImport(state, imported, 'new');
+  assert.equal(state.filtersEnabled, false);
+  assert.equal(history.restore(state, true)!.filtersEnabled, true);
+});
+
+test('legacy workspaces migrate the active preset A/B state and prefer an existing global choice', () => {
+  const state = initialState();
   const legacy = JSON.parse(JSON.stringify(state));
-  delete legacy.presets[0].filtersEnabled;
-  legacy.presets[0].enabled = false;
-  const migrated = validateState(legacy).presets[0];
-  assert.equal(migrated.filtersEnabled, true);
-  assert.equal(migrated.enabled, false);
-  assert.equal(response(playbackChannel(migrated.left, migrated), 1000), 0);
+  delete legacy.filtersEnabled;
+  legacy.presets[0].filtersEnabled = true;
+  legacy.presets[1].filtersEnabled = false;
+  legacy.activeId = legacy.presets[1].id;
+  assert.equal(validateState(legacy).filtersEnabled, false);
+  legacy.filtersEnabled = true;
+  assert.equal(validateState(legacy).filtersEnabled, true);
+  delete legacy.filtersEnabled;
+  delete legacy.presets[1].filtersEnabled;
+  assert.equal(validateState(legacy).filtersEnabled, true);
+  legacy.activeId = 'missing';
+  legacy.presets[0].filtersEnabled = false;
+  const migrated = validateState(legacy);
+  assert.equal(migrated.filtersEnabled, false);
+  assert.ok(migrated.presets.every((p) => !('filtersEnabled' in p)));
 });

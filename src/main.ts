@@ -204,7 +204,7 @@ const liveSync = createLiveSync(
   liveSyncEnabled,
 );
 function syncBackend() {
-  liveSync.update(preset(), state.sampleRate);
+  liveSync.update(preset(), state.sampleRate, state.filtersEnabled);
 }
 
 const curvePickers = curveRoles.map((kind) =>
@@ -288,7 +288,6 @@ const autoEqPopup = createAutoEqPopup({
       current().filters = result.filters;
       current().preampDb = result.preampDb;
       preset().enabled = true;
-      preset().filtersEnabled = true;
       selected = result.filters.length ? 0 : -1;
     });
     undoToast(
@@ -395,8 +394,8 @@ function render() {
   $<HTMLInputElement>('#power').checked = p.enabled;
   const compare = $<HTMLButtonElement>('#compare');
   compare.disabled = !p.enabled;
-  compare.textContent = p.filtersEnabled ? 'A · EQ' : 'B · Preamp only';
-  compare.setAttribute('aria-pressed', String(!p.filtersEnabled));
+  compare.textContent = state.filtersEnabled ? 'A · EQ' : 'B · Preamp only';
+  compare.setAttribute('aria-pressed', String(!state.filtersEnabled));
   compare.title = !p.enabled
     ? 'Turn Power on to compare EQ with preamp only'
     : 'Compare with filters bypassed, keeping the same preamp · Shortcut B';
@@ -534,7 +533,7 @@ const actions: Record<string, () => void | Promise<void>> = {
   compare: () => {
     if (!preset().enabled) return;
     commit(() => {
-      preset().filtersEnabled = !preset().filtersEnabled;
+      state.filtersEnabled = !state.filtersEnabled;
     });
   },
   'backend-info': () => {

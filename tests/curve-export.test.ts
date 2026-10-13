@@ -67,8 +67,9 @@ test('export rejects absent or unloaded source data instead of exporting a fabri
 
 test('filtered exports match preamp-only comparison and the display preamp preference', () => {
   const { state, preset } = setup();
+  state.filtersEnabled = false;
   const values = (enabled = true) =>
-    parseCurve(exportFilteredCurve(state, preset.left, enabled, false), 'Comparison').points.map(
+    parseCurve(exportFilteredCurve(state, preset.left, enabled), 'Comparison').points.map(
       ([, db]) => db,
     );
   state.curveDisplay.includePreamp = true;

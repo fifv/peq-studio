@@ -21,7 +21,6 @@ export interface Preset {
   curveAlignment: CurveAlignment;
   linked: boolean;
   enabled: boolean;
-  filtersEnabled: boolean;
   left: Channel;
   right: Channel;
 }
@@ -76,6 +75,7 @@ export interface AutoEqOptions {
 }
 export interface Workspace {
   version: number;
+  filtersEnabled: boolean;
   presets: Preset[];
   activeId: string;
   curves: MeasuredCurve[];

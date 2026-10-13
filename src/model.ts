@@ -63,7 +63,6 @@ export const newPreset = (
   curveAlignment: defaultCurveAlignment(),
   linked: true,
   enabled: true,
-  filtersEnabled: true,
   left: clone(channel),
   right: clone(channel),
 });
@@ -82,6 +81,7 @@ export function initialState(): Workspace {
   const flat = newPreset('Flat reference');
   return {
     version: 1,
+    filtersEnabled: true,
     presets: [example, flat],
     activeId: example.id,
     curves: [],
@@ -149,7 +149,6 @@ export function importPreset(text: string, name: string): Preset {
       curveAlignment: normalizeCurveAlignment(p.curveAlignment),
       linked: p.linked !== false,
       enabled: p.enabled !== false,
-      filtersEnabled: p.filtersEnabled !== false,
       left: validateChannel(p.left),
       right: validateChannel(p.linked !== false ? p.left : p.right),
     };
@@ -243,7 +242,7 @@ export function response(channel: Channel, hz: number, sampleRate = 48000) {
 /** A/B comparison keeps the stored bands intact and retains each channel's preamp. */
 export function playbackChannel(
   channel: Channel,
-  { enabled, filtersEnabled }: Pick<Preset, 'enabled' | 'filtersEnabled'>,
+  { enabled, filtersEnabled }: { enabled: boolean; filtersEnabled: boolean },
 ): Channel {
   if (!enabled) return { preampDb: 0, filters: [] };
   return filtersEnabled === false ? { preampDb: channel.preampDb, filters: [] } : channel;
@@ -273,7 +272,6 @@ export function validateState(value: unknown): Workspace {
             : '',
       linked: p.linked !== false,
       enabled: p.enabled !== false,
-      filtersEnabled: p.filtersEnabled !== false,
       left: validateChannel(p.left),
       right: validateChannel(p.right),
       curveAlignment: normalizeCurveAlignment(p.curveAlignment ?? state.curveDisplay),
@@ -305,6 +303,13 @@ export function validateState(value: unknown): Workspace {
   }
   return {
     version: 1,
+    // Migrate the currently audible legacy preset mode into one workspace-wide A/B choice.
+    filtersEnabled:
+      typeof state.filtersEnabled === 'boolean'
+        ? state.filtersEnabled
+        : record(
+            state.presets.find((value) => record(value).id === state.activeId) ?? state.presets[0],
+          ).filtersEnabled !== false,
     presets,
     curves,
     activeId: presets.some((p) => p.id === state.activeId) ? String(state.activeId) : presets[0].id,

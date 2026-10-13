@@ -20,13 +20,17 @@ export interface PeqBackend {
    * Reject unsupported settings with an actionable error; never silently truncate. */
   apply(configuration: BackendConfiguration): Promise<void>;
 }
-export function backendConfiguration(preset: Preset, sampleRate = 48000): BackendConfiguration {
+export function backendConfiguration(
+  preset: Preset,
+  sampleRate = 48000,
+  filtersEnabled = true,
+): BackendConfiguration {
   if (![44100, 48000, 96000, 192000].includes(sampleRate)) throw Error('Unsupported sample rate.');
   return clone({
     version: 1,
     name: preset.name,
     enabled: preset.enabled !== false,
-    filtersEnabled: preset.filtersEnabled !== false,
+    filtersEnabled,
     linked: preset.linked !== false,
     sampleRate,
     left: validateChannel(preset.left),
@@ -78,10 +82,10 @@ export function createBackendController() {
         busy = false;
       }
     },
-    async apply(preset: Preset, { sampleRate = 48000 } = {}) {
+    async apply(preset: Preset, { sampleRate = 48000, filtersEnabled = true } = {}) {
       requireIdle();
       if (!adapter || !connected) throw Error('Connect a backend before applying PEQ.');
-      const configuration = backendConfiguration(preset, sampleRate);
+      const configuration = backendConfiguration(preset, sampleRate, filtersEnabled);
       busy = true;
       try {
         await adapter.apply(configuration);

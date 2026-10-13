@@ -202,11 +202,7 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
           loadBuiltinCurve('source', preset.sourceId),
           state.curveDisplay.compensated ? loadBuiltinCurve('target', preset.targetId) : undefined,
         ]);
-        download(
-          name,
-          exportFilteredCurve(state, channel, preset.enabled, preset.filtersEnabled),
-          'text/csv',
-        );
+        download(name, exportFilteredCurve(state, channel, preset.enabled), 'text/csv');
         $<HTMLDialogElement>('#modal').close();
       } catch (error) {
         toast(errorMessage(error));

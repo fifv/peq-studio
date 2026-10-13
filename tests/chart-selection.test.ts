@@ -160,6 +160,22 @@ function fixture(t: TestContext) {
   };
 }
 
+test('preamp-only badge follows global comparison and power without hiding configured EQ', (t) => {
+  const f = fixture(t);
+  assert.doesNotMatch(f.svg.innerHTML, /Filters bypassed/);
+  f.state.filtersEnabled = false;
+  f.chart.draw();
+  assert.match(f.svg.innerHTML, /Filters bypassed · Preamp active/);
+  assert.match(f.svg.innerHTML, /combined-path/);
+  f.state.presets[0].enabled = false;
+  f.chart.draw();
+  assert.doesNotMatch(f.svg.innerHTML, /Filters bypassed/);
+  f.state.presets[0].enabled = true;
+  f.state.filtersEnabled = true;
+  f.chart.draw();
+  assert.doesNotMatch(f.svg.innerHTML, /Filters bypassed/);
+});
+
 test('Shift-drag selects graph handles without editing or adding undo; cancellation leaves selection intact', (t) => {
   const f = fixture(t);
   f.pointer('pointerdown', 200, 130, { shiftKey: true });

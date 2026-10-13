@@ -91,9 +91,9 @@ export function createLiveSync(
   if (!enabled) reportOff();
 
   return {
-    update(preset: Preset, sampleRate: number) {
+    update(preset: Preset, sampleRate: number, filtersEnabled = true) {
       if (stopped) return;
-      desired = JSON.stringify(backendConfiguration(preset, sampleRate));
+      desired = JSON.stringify(backendConfiguration(preset, sampleRate, filtersEnabled));
       void pump();
     },
     setEnabled(value: boolean) {
