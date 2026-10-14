@@ -1,6 +1,6 @@
 import { clamp } from '../utils.ts';
 
-/** Mouse selection follows the held pointer; handles and touch scrolling stay independent. */
+/** Mouse selection can start on a preset or list gap; handles and touch stay independent. */
 export function installPresetSlide(root: HTMLElement, onSelect: (id: string) => void) {
   let drag: { pointer: number; x: number; y: number; selected: string } | null = null;
   let frame = 0;
@@ -43,14 +43,28 @@ export function installPresetSlide(root: HTMLElement, onSelect: (id: string) => 
       event.target instanceof Element
         ? event.target.closest<HTMLElement>('.preset-select[data-id]')
         : null;
-    if (!button) return;
+    if (!button && event.target !== root) return;
+    if (!button) {
+      // Empty list space arms selection without changing it. Leave the native
+      // scrollbar gutter alone so dragging its thumb still scrolls normally.
+      const rect = root.getBoundingClientRect();
+      const left = rect.left + root.clientLeft;
+      const top = rect.top + root.clientTop;
+      if (
+        event.clientX < left ||
+        event.clientX >= left + root.clientWidth ||
+        event.clientY < top ||
+        event.clientY >= top + root.clientHeight
+      )
+        return;
+    }
     event.preventDefault();
     suppressClick = false;
     drag = { pointer: event.pointerId, x: event.clientX, y: event.clientY, selected: '' };
     // The stable list keeps capture even when selecting rebuilds its rows.
     root.setPointerCapture(event.pointerId);
     root.classList.add('slide-selecting');
-    select(button.dataset.id!);
+    if (button) select(button.dataset.id!);
   });
   root.addEventListener('pointermove', (event) => {
     if (drag?.pointer !== event.pointerId) return;

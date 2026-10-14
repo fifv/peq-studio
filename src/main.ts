@@ -973,14 +973,14 @@ blindTest = createBlindTest({
   isSyncEnabled: () => liveSyncEnabled,
   toast,
 });
-// Reveal only within the preset list; never move the page or animate on startup.
+// Center the active preset within its list without moving the page or animating.
 requestAnimationFrame(() => {
   const list = $('#presets');
   const active = list.querySelector<HTMLElement>('.preset-row.active');
   if (!active) return;
   const bounds = list.getBoundingClientRect(),
     row = active.getBoundingClientRect();
-  const dy = row.top < bounds.top ? row.top - bounds.top : Math.max(0, row.bottom - bounds.bottom);
+  const dy = row.top + row.height / 2 - (bounds.top + bounds.height / 2);
   const dx =
     row.left < bounds.left ? row.left - bounds.left : Math.max(0, row.right - bounds.right);
   list.scrollTo({ top: list.scrollTop + dy, left: list.scrollLeft + dx, behavior: 'instant' });
