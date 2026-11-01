@@ -1,6 +1,6 @@
 import { clamp } from '../utils.ts';
 
-/** Slide within curve rows or collection tabs; grips remain dedicated to reordering. */
+/** Slide from curve rows, list gaps, or collection tabs; grips stay dedicated to reordering. */
 export function installCurveSlide(
   root: HTMLElement,
   onSelect: (id: string) => void,
@@ -67,13 +67,29 @@ export function installCurveSlide(
     'pointerdown',
     (event) => {
       if (event.button !== 0 || event.pointerType !== 'mouse' || drag) return;
+      const target = event.target;
       const choice =
-        event.target instanceof Element ? event.target.closest<HTMLElement>('.curve-choice') : null;
+        target instanceof Element ? target.closest<HTMLElement>('.curve-choice') : null;
       const tab =
         onCollection && event.target instanceof Element
           ? event.target.closest<HTMLElement>('[data-view]')
           : null;
-      if (!choice && !tab) return;
+      if (!choice && !tab) {
+        const list = root.querySelector<HTMLElement>('.curve-list');
+        if (!list || target !== list) return;
+        // Arm a gesture in empty list space without changing the current curve.
+        // Native scrollbar drags must not start curve selection.
+        const rect = list.getBoundingClientRect();
+        const left = rect.left + list.clientLeft;
+        const top = rect.top + list.clientTop;
+        if (
+          event.clientX < left ||
+          event.clientX >= left + list.clientWidth ||
+          event.clientY < top ||
+          event.clientY >= top + list.clientHeight
+        )
+          return;
+      }
       event.preventDefault();
       suppressClick = false;
       drag = {
@@ -87,7 +103,8 @@ export function installCurveSlide(
       // Selection redraws rows; capture on the stable popup instead of the button.
       root.setPointerCapture(event.pointerId);
       root.classList.add('slide-selecting');
-      select(tab ? tab.dataset.view! : choice!.dataset.curveId!);
+      if (tab) select(tab.dataset.view!);
+      else if (choice) select(choice.dataset.curveId!);
     },
     options,
   );

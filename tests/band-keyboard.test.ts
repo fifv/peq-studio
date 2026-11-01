@@ -9,13 +9,16 @@ test('Space inverts selected bands individually in one undo step and respects ke
     editing = false;
     button = false;
     card = false;
+    popup = false;
     closest(selector: string) {
       return (
         selector.startsWith('input')
           ? this.editing
           : selector.startsWith('button')
             ? this.button
-            : this.card
+            : selector.startsWith('[aria-haspopup]')
+              ? this.popup
+              : this.card
       )
         ? this
         : null;
@@ -111,4 +114,26 @@ test('Space inverts selected bands individually in one undo step and respects ke
   assert.equal(comparisons, 2);
   assert.deepEqual(filters(), beforeFilters, 'comparison preserves individual band states');
   assert.equal(commits, before);
+  selection = [0, 1];
+  target.button = target.popup = true;
+  const mixed = filters().map((f) => f.enabled);
+  assert.equal(press(), true, 'focused popup triggers cannot consume Space to open a popup');
+  assert.deepEqual(
+    filters().map((f) => f.enabled),
+    [!mixed[0], !mixed[1], mixed[2]],
+  );
+  assert.equal(commits, before + 1);
+  assert.equal(press({ repeat: true }), true);
+  assert.equal(commits, before + 1);
+  modal = true;
+  assert.equal(press(), true, 'Space also cannot close an open popup via its focused trigger');
+  assert.equal(commits, before + 1, 'an open dialog blocks background edits');
+  modal = false;
+  selection = [];
+  assert.equal(press(), true);
+  assert.equal(
+    comparisons,
+    3,
+    'popup-trigger focus still permits preamp-only shortcut with no selection',
+  );
 });
