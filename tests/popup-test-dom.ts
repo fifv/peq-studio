@@ -1,9 +1,10 @@
 import type { TestContext } from 'node:test';
 
-export class PopupTestNode {
+export class PopupTestNode extends EventTarget {
   textContent = '';
   innerHTML = '';
   value = '';
+  checked = false;
   focused = false;
   selected = false;
   closed = false;

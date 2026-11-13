@@ -197,8 +197,12 @@ export function importPreset(text: string, name: string): Preset {
 export function exportPreset(preset: Preset) {
   return JSON.stringify({ format: 'peq-studio', version: 1, preset }, null, 2);
 }
-export function exportText(channel: Channel, includePreamp = true) {
-  const text = toRewText(channel);
+export function exportText(channel: Channel, includePreamp = true, includeOffFilters = true) {
+  const text = toRewText(
+    includeOffFilters
+      ? channel
+      : { ...channel, filters: channel.filters.filter((filter) => filter.enabled) },
+  );
   return includePreamp
     ? text
     : text

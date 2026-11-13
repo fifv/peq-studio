@@ -43,6 +43,28 @@ test('APO preview can omit preamp while default text and JSON exports retain ori
   assert.match(exportText(preset.left), /^Preamp: -6\.0 dB/m);
   assert.deepEqual(preset, original);
 });
+test('APO export can omit OFF filters independently of preamp without changing the preset', () => {
+  const preset = newPreset('Mixed', {
+    preampDb: -6,
+    filters: [
+      { ...newBand(100, 3), enabled: false },
+      newBand(1000, -2),
+      { ...newBand(5000, 1), enabled: false },
+    ],
+  });
+  const original = structuredClone(preset);
+  assert.match(exportText(preset.left), /Filter 1: OFF/);
+  for (const preamp of [true, false]) {
+    const text = exportText(preset.left, preamp, false);
+    assert.equal(text.includes('Preamp:'), preamp);
+    assert.doesNotMatch(text, /OFF/);
+    assert.match(text, /Filter 1: ON PK Fc 1000 Hz/);
+    assert.equal(importPreset(text, 'Enabled only').left.filters.length, 1);
+  }
+  assert.equal(exportText({ preampDb: -6, filters: [preset.left.filters[0]] }, false, false), '');
+  assert.deepEqual(importPreset(exportPreset(preset), 'Complete').left, preset.left);
+  assert.deepEqual(preset, original);
+});
 test('gains beyond the old limits survive gestures, persistence and both export formats', () => {
   for (const gain of [-72, -24, 24, 72]) {
     const preset = newPreset('Extended gain', { preampDb: -80, filters: [newBand(1000, gain)] });

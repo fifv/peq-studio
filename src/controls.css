@@ -918,7 +918,13 @@ dialog .config-label {
 dialog .config-heading .config-label {
   margin: 0;
 }
-dialog .config-preamp-toggle {
+.config-toggles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+dialog .config-export-toggle {
   display: flex;
   align-items: center;
   gap: 8px;

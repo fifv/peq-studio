@@ -11,6 +11,7 @@ import { renderToggle } from './toggle.ts';
 
 const IMPORT_MODE_KEY = 'peq-studio.import-mode';
 const EXPORT_PREAMP_KEY = 'peq-studio.export-include-preamp';
+const EXPORT_OFF_FILTERS_KEY = 'peq-studio.export-include-off-filters';
 interface FileActionsOptions {
   getState: () => Workspace;
   getPreset: () => Preset;
@@ -33,8 +34,10 @@ export function createFileActions({
 }: FileActionsOptions): Record<string, () => void | Promise<void>> {
   let preferredImportMode: ImportMode = 'new';
   let exportIncludePreamp = true;
+  let exportIncludeOffFilters = true;
   try {
     exportIncludePreamp = localStorage.getItem(EXPORT_PREAMP_KEY) !== 'false';
+    exportIncludeOffFilters = localStorage.getItem(EXPORT_OFF_FILTERS_KEY) !== 'false';
   } catch {
     // Export stays usable when browser storage is unavailable.
   }
@@ -45,6 +48,8 @@ export function createFileActions({
     // Keep the preference for this session when browser storage is unavailable.
   }
   const fileName = () => getPreset().name.replace(/[<>:"/\\|?*]/g, '_');
+  const configurationText = () =>
+    exportText(getChannelConfig(), exportIncludePreamp, exportIncludeOffFilters);
   const chooseFile = (
     accept: string,
     handler: (text: string, name: string, fileName: string) => void | Promise<void>,
@@ -123,7 +128,10 @@ export function createFileActions({
           </p>
           <div class="config-heading">
             <label class="config-label" for="export-text">APO configuration</label>
-            ${renderToggle('Include preamp', { id: 'export-include-preamp', checked: exportIncludePreamp, className: 'config-preamp-toggle' })}
+            <div class="config-toggles">
+              ${renderToggle('Include preamp', { id: 'export-include-preamp', checked: exportIncludePreamp, className: 'config-export-toggle' })}
+              ${renderToggle('Include OFF filters', { id: 'export-include-off-filters', checked: exportIncludeOffFilters, className: 'config-export-toggle' })}
+            </div>
           </div>
           <textarea
             id="export-text"
@@ -133,7 +141,7 @@ export function createFileActions({
             spellcheck="false"
             aria-label="APO configuration"
           >
-${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
+${esc(configurationText())}</textarea>
           <div class="config-copy-row">
             <span id="copy-status" role="status"></span
             ><button class="primary" data-action="copy-apo">
@@ -155,19 +163,23 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
           </div>`,
         { anchor: '[data-action="export"]' },
       );
-      $<HTMLInputElement>('#export-include-preamp').addEventListener('change', (event) => {
-        exportIncludePreamp = (event.target as HTMLInputElement).checked;
-        $<HTMLTextAreaElement>('#export-text').value = exportText(
-          getChannelConfig(),
-          exportIncludePreamp,
-        );
+      const updateExportOptions = () => {
+        exportIncludePreamp = $<HTMLInputElement>('#export-include-preamp').checked;
+        exportIncludeOffFilters = $<HTMLInputElement>('#export-include-off-filters').checked;
+        $<HTMLTextAreaElement>('#export-text').value = configurationText();
         $('#copy-status').textContent = '';
         try {
           localStorage.setItem(EXPORT_PREAMP_KEY, String(exportIncludePreamp));
+          localStorage.setItem(EXPORT_OFF_FILTERS_KEY, String(exportIncludeOffFilters));
         } catch {
           // Retain the choice for this session if storage is blocked.
         }
-      });
+      };
+      $<HTMLInputElement>('#export-include-preamp').addEventListener('change', updateExportOptions);
+      $<HTMLInputElement>('#export-include-off-filters').addEventListener(
+        'change',
+        updateExportOptions,
+      );
     },
     'copy-apo': async () => {
       const field = $<HTMLTextAreaElement>('#export-text'),
@@ -184,7 +196,7 @@ ${esc(exportText(getChannelConfig(), exportIncludePreamp))}</textarea>
     'export-txt': () => {
       download(
         `${fileName()}-${getPreset().linked ? 'LR' : getChannelName()}.txt`,
-        exportText(getChannelConfig()),
+        configurationText(),
       );
       $<HTMLDialogElement>('#modal').close();
     },
